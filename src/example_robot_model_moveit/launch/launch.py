@@ -9,6 +9,8 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.parameter_descriptions import ParameterValue
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
+from launch.actions import DeclareLaunchArgument, GroupAction
+from launch_ros.actions import PushRosNamespace
 
 launch_config={
     "robot_ip": "", # real robot_control_ip
@@ -108,7 +110,7 @@ def generate_launch_description():
         executable="ros2_control_node",
         parameters=[ros2_controllers_path],
         remappings=[
-            ("/controller_manager/robot_description", "/robot_description"),
+            ("/controller_manager/robot_description", "robot_description"),
         ], # because ros2_control_node listen to "/controller_manager/robot_description" but we always publish robot_description on topic "robot_description". we use this to talk node to map this to topic
         output="both",
         # namespace="example_robot",
@@ -120,7 +122,7 @@ def generate_launch_description():
         arguments=[
             "joint_state_broadcaster",
             "--controller-manager",
-            "/controller_manager",
+            "controller_manager",
         ],# set this node use joint_state_broadcaster controller and conmunicate with /controller_manager
         # namespace="example_robot",
     )
@@ -129,19 +131,36 @@ def generate_launch_description():
     arm_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["body_controller", "-c", "/controller_manager"], 
+        arguments=["body_controller", "-c", "controller_manager"], 
         # namespace="example_robot",
     )
     # launch a controller node for "body_controller"
-    
+
+    declare_namespace_arg = DeclareLaunchArgument(
+        "robot_namespace",
+        default_value="",  # 设置默认命名空间，可以为空""或你想要的名字
+        description="Namespace for all nodes launched in this file",
+    )
+    robot_namespace = LaunchConfiguration("robot_namespace") # 获取配置的命名空间
+
+    namespaced_group = GroupAction(
+        actions=[
+            # 首先推送命名空间
+            PushRosNamespace(robot_namespace),
+
+            # 然后添加所有需要置于该命名空间下的节点和其他动作
+            move_group_node,
+            rviz_node,
+            static_tf,
+            robot_state_publisher,
+            ros2_control_node,
+            joint_state_broadcaster_spawner,
+            arm_controller_spawner,
+        ]
+    )
 
     return LaunchDescription([
-        move_group_node,
+        declare_namespace_arg,
         rviz_config_arg,
-        rviz_node,
-        static_tf,
-        robot_state_publisher,
-        ros2_control_node,
-        joint_state_broadcaster_spawner,
-        arm_controller_spawner
+        namespaced_group,
     ])
