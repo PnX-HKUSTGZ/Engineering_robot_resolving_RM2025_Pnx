@@ -3,7 +3,7 @@
      Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
      For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 <robot
-  name="exmaple_robot_model">
+  name="example_robot_model">
   <link
     name="robot_base">
     <inertial>
@@ -26,7 +26,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/base.STL" />
+          filename="package://example_robot_model/meshes/base.STL" />
       </geometry>
       <material
         name="">
@@ -40,7 +40,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/base.STL" />
+          filename="package://example_robot_model/meshes/base.STL" />
       </geometry>
     </collision>
   </link>
@@ -66,7 +66,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r1.STL" />
+          filename="package://example_robot_model/meshes/r1.STL" />
       </geometry>
       <material
         name="">
@@ -80,7 +80,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r1.STL" />
+          filename="package://example_robot_model/meshes/r1.STL" />
       </geometry>
     </collision>
   </link>
@@ -124,7 +124,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r2.STL" />
+          filename="package://example_robot_model/meshes/r2.STL" />
       </geometry>
       <material
         name="">
@@ -138,7 +138,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r2.STL" />
+          filename="package://example_robot_model/meshes/r2.STL" />
       </geometry>
     </collision>
   </link>
@@ -182,7 +182,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r3.STL" />
+          filename="package://example_robot_model/meshes/r3.STL" />
       </geometry>
       <material
         name="">
@@ -196,7 +196,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r3.STL" />
+          filename="package://example_robot_model/meshes/r3.STL" />
       </geometry>
     </collision>
   </link>
@@ -240,7 +240,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r4.STL" />
+          filename="package://example_robot_model/meshes/r4.STL" />
       </geometry>
       <material
         name="">
@@ -254,7 +254,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r4.STL" />
+          filename="package://example_robot_model/meshes/r4.STL" />
       </geometry>
     </collision>
   </link>
@@ -298,7 +298,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r7.STL" />
+          filename="package://example_robot_model/meshes/r7.STL" />
       </geometry>
       <material
         name="">
@@ -312,7 +312,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r7.STL" />
+          filename="package://example_robot_model/meshes/r7.STL" />
       </geometry>
     </collision>
   </link>
@@ -356,7 +356,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r5.STL" />
+          filename="package://example_robot_model/meshes/r5.STL" />
       </geometry>
       <material
         name="">
@@ -370,7 +370,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r5.STL" />
+          filename="package://example_robot_model/meshes/r5.STL" />
       </geometry>
     </collision>
   </link>
@@ -414,7 +414,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r6.STL" />
+          filename="package://example_robot_model/meshes/r6.STL" />
       </geometry>
       <material
         name="">
@@ -428,7 +428,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/r6.STL" />
+          filename="package://example_robot_model/meshes/r6.STL" />
       </geometry>
     </collision>
   </link>
@@ -472,7 +472,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/end.STL" />
+          filename="package://example_robot_model/meshes/end.STL" />
       </geometry>
       <material
         name="">
@@ -486,7 +486,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://exmaple_robot_model/meshes/end.STL" />
+          filename="package://example_robot_model/meshes/end.STL" />
       </geometry>
     </collision>
   </link>

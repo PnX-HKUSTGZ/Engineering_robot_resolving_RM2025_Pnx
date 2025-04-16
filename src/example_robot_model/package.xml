@@ -1,5 +1,5 @@
 <package format="3">
-  <name>exmaple_robot_model</name>
+  <name>example_robot_model</name>
   <version>1.0.0</version>
   <description>
     <p>URDF Description package for my_robotic_arm</p>
