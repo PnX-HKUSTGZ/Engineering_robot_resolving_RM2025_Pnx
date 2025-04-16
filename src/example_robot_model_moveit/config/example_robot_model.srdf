@@ -10,7 +10,6 @@
     <!--CHAINS: When a chain is specified, all the links along the chain (including endpoints) are included in the group. Additionally, all the joints that are parents to included links are also included. This means that joints along the chain and the parent joint of the base link are included in the group-->
     <!--SUBGROUPS: Groups can also be formed by referencing to already defined group names-->
     <group name="body">
-        <joint name="virtual_robot_base"/>
         <joint name="r1"/>
         <joint name="j2"/>
         <joint name="j3"/>
@@ -30,12 +29,12 @@
         <joint name="j5" value="0"/>
         <joint name="j6" value="0"/>
         <joint name="j7" value="0"/>
-        <joint name="r1" value="0"/>
+        <joint name="r1" value="0.5031"/>
     </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
-    <end_effector name="end_hand" parent_link="end" group="hand"/>
+    <end_effector name="end_hand" parent_link="r6" group="hand"/>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
-    <virtual_joint name="virtual_robot_base" type="fixed" parent_frame="map" child_link="robot_base"/>
+    <virtual_joint name="virtual_robot_base" type="fixed" parent_frame="base" child_link="robot_base"/>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
     <disable_collisions link1="end" link2="r5" reason="Never"/>
     <disable_collisions link1="end" link2="r6" reason="Adjacent"/>

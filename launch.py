@@ -7,26 +7,33 @@ from ament_index_python.packages import get_package_share_directory
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
-
+from launch_ros.parameter_descriptions import ParameterValue
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 
 launch_config={
     "robot_ip": "", # real robot_control_ip
     "use_fake_hardware": "true", # use vitrual robot
     "gripper": "", # end effector type
-    "dof": "6", # freedom degree
+    "dof": "7", # freedom degree
 }
 
 def generate_launch_description():
     location=get_package_share_directory('example_robot_model_moveit')
+    robot_location=os.path.join(location,"config","example_robot_model.urdf.xacro")
+    moveit_controller=os.path.join(location,"config","moveit_controllers.yaml")
+    ros2_controllers_path=os.path.join(location,"config","ros2_controllers.yaml")
 
-    print(f'location : {location}')
+    print(f'location:{location}')
+    print(f'robot_location:{robot_location}')
+    print(f'moveit_controller:{moveit_controller}')
+    print(f'ros2_controllers_path:{ros2_controllers_path}')
 
     moveit_config=(
         MoveItConfigsBuilder(
             "example_robot_model", package_name="example_robot_model_moveit"
         )
         .robot_description(mappings=launch_config)
-        .trajectory_execution(file_path=os.path.join(location,"config","moveit_controllers.yaml"))
+        .trajectory_execution(file_path=moveit_controller,moveit_manage_controllers=True)
         .planning_scene_monitor(
             publish_robot_description=True, publish_robot_description_semantic=True
         )
@@ -77,7 +84,7 @@ def generate_launch_description():
         executable="static_transform_publisher",
         name="static_transform_publisher",
         output="log",
-        arguments=["--frame-id", "base", "--child-frame-id", "virtual_robot_base"],
+        arguments=["--frame-id", "base", "--child-frame-id", "robot_base"],
         # namespace="example_robot",
     )
 
@@ -95,8 +102,6 @@ def generate_launch_description():
 
     # ros2_control
 
-    ros2_controllers_path = os.path.join(location,"config","ros2_controllers.yaml")
-    print(f'ros2_controllers_path : {ros2_controllers_path}')
 
     ros2_control_node= Node(
         package="controller_manager",

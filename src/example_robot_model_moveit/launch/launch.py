@@ -14,7 +14,7 @@ launch_config={
     "robot_ip": "", # real robot_control_ip
     "use_fake_hardware": "true", # use vitrual robot
     "gripper": "", # end effector type
-    "dof": "6", # freedom degree
+    "dof": "7", # freedom degree
 }
 
 def generate_launch_description():
@@ -23,27 +23,17 @@ def generate_launch_description():
     moveit_controller=os.path.join(location,"config","moveit_controllers.yaml")
     ros2_controllers_path=os.path.join(location,"config","ros2_controllers.yaml")
 
-    robot_description_content= ParameterValue(
-        Command([ # 使用 Command substitution 来执行 xacro
-            PathJoinSubstitution([FindExecutable(name="xacro")]), " ",
-            PathJoinSubstitution([robot_location]),
-        ]),
-        value_type=str).value
-
-    robot_description = {"robot_description": robot_location}
-
-    print(f'robot_location : {robot_location}')
-    print(f'robot_description_content : {robot_description_content}')
-
-    print(f'location : {location}')
-    print(f'os.path.join(location,"config","moveit_controllers.yaml") : {os.path.join(location,"config","moveit_controllers.yaml")}')
+    print(f'location:{location}')
+    print(f'robot_location:{robot_location}')
+    print(f'moveit_controller:{moveit_controller}')
+    print(f'ros2_controllers_path:{ros2_controllers_path}')
 
     moveit_config=(
         MoveItConfigsBuilder(
             "example_robot_model", package_name="example_robot_model_moveit"
         )
         .robot_description(mappings=launch_config)
-        .trajectory_execution(file_path=moveit_controller)
+        .trajectory_execution(file_path=moveit_controller,moveit_manage_controllers=True)
         .planning_scene_monitor(
             publish_robot_description=True, publish_robot_description_semantic=True
         )
