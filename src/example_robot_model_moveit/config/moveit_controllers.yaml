@@ -9,10 +9,10 @@ moveit_simple_controller_manager:
   body_controller:
     type: FollowJointTrajectory
     joints:
-      - r1
       - j2
       - j3
       - j4
-      - j7
       - j5
       - j6
+      - j7
+      - r1

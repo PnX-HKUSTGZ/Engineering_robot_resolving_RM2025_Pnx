@@ -13,13 +13,13 @@ controller_manager:
 body_controller:
   ros__parameters:
     joints:
-      - r1
       - j2
       - j3
       - j4
-      - j7
       - j5
       - j6
+      - j7
+      - r1
     command_interfaces:
       - position
     state_interfaces:
