@@ -1,0 +1,7 @@
+position_controller:
+  ros__parameters:
+    robot_base: "robot_base"
+    fixed_frame: "base"
+    RedeemBox_frame: "object/box"
+    use_virtual_robot_position: true
+    use_virtual_box_position: true
