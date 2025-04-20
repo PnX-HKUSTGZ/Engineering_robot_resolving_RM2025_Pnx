@@ -8,15 +8,28 @@ namespace Engineering_robot_RM2025_Pnx{
 
         if(!this->has_parameter("PLANNING_GROUP")){
             this->declare_parameter<std::string>("PLANNING_GROUP","body");
+            RCLCPP_WARN(this->get_logger(),"No provided param PLANNING_GROUP, set default val: body");
         }
         if(!this->has_parameter("EndEffectorJoint")){
             this->declare_parameter<std::string>("EndEffectorJoint","j6");
+            RCLCPP_WARN(this->get_logger(),"No provided param EndEffectorJoint, set default val: j6");
+        }
+        if(!this->has_parameter("robot_description")){
+            this->declare_parameter<std::string>("robot_description","/home/pnx/code/Engineering_robot_resolving_RM2025_Pnx/src/example_robot_model/urdf/my_robotic_arm.urdf");
+            RCLCPP_ERROR(this->get_logger(),"No provided param robot_description, the program needs this param");
+            rclcpp::shutdown();
+        }
+        if(!this->has_parameter("robot_description_semantic")){
+            this->declare_parameter<std::string>("robot_description_semantic","/home/pnx/code/Engineering_robot_resolving_RM2025_Pnx/src/example_robot_model_moveit/config/example_robot_model.srdf");
+            RCLCPP_ERROR(this->get_logger(),"No provided param robot_description_semantic, the program needs this param");
+            rclcpp::shutdown();
         }
 
-        robot_description=this->get_parameter("my_robot_description").as_string();
+        robot_description_path=this->get_parameter("robot_description").as_string();
+        robot_description_semantic_path=this->get_parameter("robot_description_semantic").as_string();
         PLANNING_GROUP=this->get_parameter("PLANNING_GROUP").as_string();
         EndEffectorJoint=this->get_parameter("EndEffectorJoint").as_string();
-        RCLCPP_INFO(this->get_logger(), "Declared parameter: robot_description=%s", robot_description.c_str());
+        RCLCPP_INFO(this->get_logger(), "Declared parameter: robot_description=%s", robot_description_path.c_str());
         RCLCPP_INFO(this->get_logger(), "Declared parameter: PLANNING_GROUP=%s", PLANNING_GROUP.c_str());
         RCLCPP_INFO(this->get_logger(), "Declared parameter: EndEffectorJoint=%s", EndEffectorJoint.c_str());
         RCLCPP_INFO(this->get_logger(), "ROS param Load successfully");
@@ -38,19 +51,30 @@ namespace Engineering_robot_RM2025_Pnx{
 
         // 创建机器人模型加载器
         try{
-            robot_model_loader_ = std::make_shared<robot_model_loader::RobotModelLoader>(this->shared_from_this(), "my_robot_description");
+            robot_model_loader_ = std::make_shared<robot_model_loader::RobotModelLoader>(this->shared_from_this(), "robot_description");
             // 这里的 robot_description 是一个ros2 的param，类型为string，指向机器人的描述文件
+            // 然后 你还要提供一个 XXX_semantic 的 param 指向 sruf 文件
+            // 这个不是路径，是直接的文件内容。。。。
         }
         catch(const std::exception & e){
             RCLCPP_ERROR(this->get_logger(),"robot_model_loader_ fail with %s",e.what());
             return 0;
         }
+        if(!robot_model_loader_){
+            RCLCPP_ERROR(this->get_logger(),"robot_model_loader_ fail");
+            return 0;
+        }
+
         RCLCPP_INFO(this->get_logger(), "Robot model loader created");
         try{
             robot_model_ = robot_model_loader_->getModel();
         }
         catch(const std::exception & e){
             RCLCPP_ERROR(this->get_logger(),"robot_model_ fail with %s",e.what());
+            return 0;
+        }
+        if(!robot_model_){
+            RCLCPP_ERROR(this->get_logger(),"robot_model_ fail");
             return 0;
         }
         RCLCPP_INFO(this->get_logger(), "model created");
@@ -68,7 +92,10 @@ namespace Engineering_robot_RM2025_Pnx{
         RCLCPP_INFO(this->get_logger(), "Planning scene created and state set to default");
 
         // 加载规划插件
-        if (!this->get_parameter("ompl.planning_plugins", planner_plugin_names_)){
+        if(this->has_parameter("planning_plugins")){
+            RCLCPP_INFO(this->get_logger(),"Have param planning_plugins");
+        }
+        if (!this->get_parameter("planning_plugins", planner_plugin_names_)){
             RCLCPP_FATAL(this->get_logger(), "Could not find planner plugin names");
             return false;
         }
@@ -116,12 +143,17 @@ namespace Engineering_robot_RM2025_Pnx{
         RCLCPP_INFO(this->get_logger(), "Planner instance created and initialized");
 
         // 初始化MoveGroup接口
-        move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(this->shared_from_this(), PLANNING_GROUP);
+        try{
+            move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(this->shared_from_this(), PLANNING_GROUP, tf2_buffer_, 5s);
+        }
+        catch(const std::exception & e){
+            RCLCPP_FATAL(this->get_logger(),"move_group_ get failed with %s",e.what());
+        }
         RCLCPP_INFO(this->get_logger(), "MoveGroup interface initialized");
 
         // 初始化可视化工具
         visual_tools_ = std::make_shared<moveit_visual_tools::MoveItVisualTools>(
-            this->shared_from_this(), "panda_link0", "move_group_tutorial", move_group_->getRobotModel());
+            this->shared_from_this(), "robot_base", "robot_move_group", move_group_->getRobotModel());
         visual_tools_->enableBatchPublishing();
         visual_tools_->deleteAllMarkers(); // 清除所有旧标记
         visual_tools_->trigger();

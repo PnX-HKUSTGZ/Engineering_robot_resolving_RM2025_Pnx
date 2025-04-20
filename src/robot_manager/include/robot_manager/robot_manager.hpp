@@ -60,6 +60,7 @@
 namespace Engineering_robot_RM2025_Pnx {
 namespace rvt = rviz_visual_tools;
 using namespace std::placeholders;
+using namespace std::chrono_literals;
 
 class MoveItPlanningNode : public rclcpp::Node{
 public:
@@ -112,7 +113,8 @@ private:
     std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool> > trigger_sub_;
 
     //param
-    std::string robot_description;
+    std::string robot_description_path;
+    std::string robot_description_semantic_path;
     std::string PLANNING_GROUP;
     std::string EndEffectorJoint;
 
