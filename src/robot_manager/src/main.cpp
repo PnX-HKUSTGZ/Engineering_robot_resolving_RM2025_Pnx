@@ -1,4 +1,4 @@
-#include "robot_controller/robot_controller.hpp"
+#include "robot_manager/robot_manager.hpp"
 
 int main(int argc, char** argv){
     rclcpp::init(argc, argv);
@@ -7,7 +7,7 @@ int main(int argc, char** argv){
     node_options.automatically_declare_parameters_from_overrides(true);
     
     auto node = std::make_shared<Engineering_robot_RM2025_Pnx::MoveItPlanningNode>(
-        "robot_controller", node_options);
+        "robot_manager", node_options);
     
     // 初始化ROS和MoveIt
     if (!node->initializeMoveIt()) {

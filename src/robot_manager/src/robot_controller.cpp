@@ -1,13 +1,24 @@
-#include "robot_controller/robot_controller.hpp"
+#include "robot_manager/robot_manager.hpp"
 namespace Engineering_robot_RM2025_Pnx{
 
     MoveItPlanningNode::MoveItPlanningNode(const std::string &node_name, const rclcpp::NodeOptions &options)
         : Node(node_name, options){
 
         //load param
-        robot_description=this->declare_parameter<std::string>("robot_description","robot_description");
-        PLANNING_GROUP=this->declare_parameter<std::string>("PLANNING_GROUP","body");
-        EndEffectorJoint=this->declare_parameter<std::string>("EndEffectorJoint","j6");
+
+        if(!this->has_parameter("PLANNING_GROUP")){
+            this->declare_parameter<std::string>("PLANNING_GROUP","body");
+        }
+        if(!this->has_parameter("EndEffectorJoint")){
+            this->declare_parameter<std::string>("EndEffectorJoint","j6");
+        }
+
+        robot_description=this->get_parameter("my_robot_description").as_string();
+        PLANNING_GROUP=this->get_parameter("PLANNING_GROUP").as_string();
+        EndEffectorJoint=this->get_parameter("EndEffectorJoint").as_string();
+        RCLCPP_INFO(this->get_logger(), "Declared parameter: robot_description=%s", robot_description.c_str());
+        RCLCPP_INFO(this->get_logger(), "Declared parameter: PLANNING_GROUP=%s", PLANNING_GROUP.c_str());
+        RCLCPP_INFO(this->get_logger(), "Declared parameter: EndEffectorJoint=%s", EndEffectorJoint.c_str());
         RCLCPP_INFO(this->get_logger(), "ROS param Load successfully");
 
         //tf2
@@ -23,25 +34,45 @@ namespace Engineering_robot_RM2025_Pnx{
     }
 
     bool MoveItPlanningNode::initializeMoveIt(){
+        RCLCPP_INFO(this->get_logger(), "Entering initializeMoveIt function");
 
         // 创建机器人模型加载器
-        robot_model_loader_ = std::make_shared<robot_model_loader::RobotModelLoader>(this->shared_from_this(), robot_description);
-        robot_model_ = robot_model_loader_->getModel();
+        try{
+            robot_model_loader_ = std::make_shared<robot_model_loader::RobotModelLoader>(this->shared_from_this(), "my_robot_description");
+            // 这里的 robot_description 是一个ros2 的param，类型为string，指向机器人的描述文件
+        }
+        catch(const std::exception & e){
+            RCLCPP_ERROR(this->get_logger(),"robot_model_loader_ fail with %s",e.what());
+            return 0;
+        }
+        RCLCPP_INFO(this->get_logger(), "Robot model loader created");
+        try{
+            robot_model_ = robot_model_loader_->getModel();
+        }
+        catch(const std::exception & e){
+            RCLCPP_ERROR(this->get_logger(),"robot_model_ fail with %s",e.what());
+            return 0;
+        }
+        RCLCPP_INFO(this->get_logger(), "model created");
 
         // 创建机器人状态和关节模型组
         robot_state_ = std::make_shared<moveit::core::RobotState>(robot_model_);
         joint_model_group_ = robot_state_->getJointModelGroup(PLANNING_GROUP);
 
+        RCLCPP_INFO(this->get_logger(), "Robot state and joint model group created");
+
         // 创建规划场景
         planning_scene_ = std::make_shared<planning_scene::PlanningScene>(robot_model_);
         //将机械臂复原，这个需要和电控确定如何操控，可以是复位到当前的机械臂状态！！！  
         planning_scene_->getCurrentStateNonConst().setToDefaultValues(joint_model_group_, "home");
+        RCLCPP_INFO(this->get_logger(), "Planning scene created and state set to default");
 
         // 加载规划插件
         if (!this->get_parameter("ompl.planning_plugins", planner_plugin_names_)){
             RCLCPP_FATAL(this->get_logger(), "Could not find planner plugin names");
             return false;
         }
+        RCLCPP_INFO(this->get_logger(), "Planner plugin names loaded");
 
         try{
             planner_plugin_loader_ = std::make_shared<pluginlib::ClassLoader<planning_interface::PlannerManager>>(
@@ -51,12 +82,14 @@ namespace Engineering_robot_RM2025_Pnx{
             RCLCPP_FATAL(this->get_logger(), "Exception while creating planning plugin loader %s", ex.what());
             return false;
         }
+        RCLCPP_INFO(this->get_logger(), "Planning plugin loader created");
 
         if (planner_plugin_names_.empty()){
             RCLCPP_ERROR(this->get_logger(),
                          "No planner plugins defined. Please make sure that the planning_plugins parameter is not empty.");
             return false;
         }
+        RCLCPP_INFO(this->get_logger(), "Planner plugin names checked");
 
         // 实例化规划器
         const auto &planner_name = planner_plugin_names_.at(0);
@@ -80,9 +113,11 @@ namespace Engineering_robot_RM2025_Pnx{
                          planner_name.c_str(), ex.what(), ss.str().c_str());
             return false;
         }
+        RCLCPP_INFO(this->get_logger(), "Planner instance created and initialized");
 
         // 初始化MoveGroup接口
         move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(this->shared_from_this(), PLANNING_GROUP);
+        RCLCPP_INFO(this->get_logger(), "MoveGroup interface initialized");
 
         // 初始化可视化工具
         visual_tools_ = std::make_shared<moveit_visual_tools::MoveItVisualTools>(
@@ -90,9 +125,11 @@ namespace Engineering_robot_RM2025_Pnx{
         visual_tools_->enableBatchPublishing();
         visual_tools_->deleteAllMarkers(); // 清除所有旧标记
         visual_tools_->trigger();
+        RCLCPP_INFO(this->get_logger(), "Visual tools initialized");
 
         // 加载远程控制
         visual_tools_->loadRemoteControl();
+        RCLCPP_INFO(this->get_logger(), "Remote control loaded");
 
         RCLCPP_INFO(this->get_logger(), "MoveIt components initialized");
         return true;
@@ -278,6 +315,7 @@ namespace Engineering_robot_RM2025_Pnx{
     }
 
     void MoveItPlanningNode::trigger_sub_callback(const std_msgs::msg::Bool::SharedPtr msg_){
+
         geometry_msgs::msg::PoseStamped pose;
 
         pose.header.frame_id = "robot_base";

@@ -1,6 +1,5 @@
 robot_controller:
   ros__parameters:
-    robot_description: "robot_description"
     PLANNING_GROUP: "body"
     EndEffectorJoint: "j6"
 
