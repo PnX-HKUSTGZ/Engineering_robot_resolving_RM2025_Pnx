@@ -42,8 +42,7 @@ def generate_launch_description():
         MoveItConfigsBuilder(
             "example_robot_model", package_name="example_robot_model_moveit"
         )
-        .robot_description(file_path=robot_description_path)
-        .robot_description_semantic(file_path=robot_description_semantic_path)
+        .robot_description(mappings=launch_config)
         .trajectory_execution(file_path=moveit_controller,moveit_manage_controllers=True)
         .planning_scene_monitor(
             publish_robot_description=True, publish_robot_description_semantic=True
@@ -62,14 +61,14 @@ def generate_launch_description():
         # namespace="example_robot"
     )
 
-    # static_tf = Node(
-    #     package="tf2_ros",
-    #     executable="static_transform_publisher",
-    #     name="static_transform_publisher",
-    #     output="log",
-    #     arguments=["--frame-id", "base", "--child-frame-id", "robot_base"],
-    #     # namespace="example_robot",
-    # )
+    static_tf = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_transform_publisher",
+        output="log",
+        arguments=["--frame-id", "base", "--child-frame-id", "robot_base"],
+        # namespace="example_robot",
+    )
 
     # future we will not use static but dynamic
 
@@ -130,9 +129,9 @@ def generate_launch_description():
     )
 
     main_node=Node(
-        package="robot_manager",
-        executable="robot_manager",
-        name="robot_manager",
+        package="engineering_robot_controller",
+        executable="Engineering_robot_Controller",
+        name="Engineering_robot_Controller",
         parameters=[
             config_path,
             moveit_config.to_dict(),
@@ -146,6 +145,6 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         arm_controller_spawner,
         move_group_node,
-        rviz_node,
+        # rviz_node,
         main_node,
     ])

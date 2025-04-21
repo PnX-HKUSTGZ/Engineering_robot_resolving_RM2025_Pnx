@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(robot_manager)
+project(engineering_robot_controller)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -40,9 +40,9 @@ find_package(moveit_visual_tools REQUIRED) # 如果使用可视化工具
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
-add_executable(robot_manager ${SOURCES})
+add_executable(Engineering_robot_Controller ${SOURCES})
 
-ament_target_dependencies(robot_manager
+ament_target_dependencies(Engineering_robot_Controller
   rclcpp
   OpenCV
   sensor_msgs
@@ -59,7 +59,7 @@ ament_target_dependencies(robot_manager
   moveit_visual_tools
 )
 
-install(TARGETS robot_manager DESTINATION lib/${PROJECT_NAME})
+install(TARGETS Engineering_robot_Controller DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 

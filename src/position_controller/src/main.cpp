@@ -44,7 +44,7 @@ namespace Engineering_robot_RM2025_Pnx{
                 robot_to_base.header.stamp=this->now();
                 robot_to_base.header.frame_id=fixed_frame;
                 robot_to_base.child_frame_id=robot_base;
-                robot_to_base.transform.translation.x=1;
+                robot_to_base.transform.translation.x=0;
                 robot_to_base.transform.translation.y=0;
                 robot_to_base.transform.translation.z=0;
                 robot_to_base.transform.rotation.w=1;
@@ -63,21 +63,23 @@ namespace Engineering_robot_RM2025_Pnx{
     // box_position
 
         if(use_virtual_box_position){
-            virtual_box_position_timer_=this->create_wall_timer(50ms,[this](){
+            int k=0;
+            virtual_box_position_timer_=this->create_wall_timer(50ms,[this,&k](){
                 tf2_ros::TransformBroadcaster tran(this);
                 geometry_msgs::msg::TransformStamped robot_to_base;
 
                 robot_to_base.header.stamp=this->now();
                 robot_to_base.header.frame_id=fixed_frame;
                 robot_to_base.child_frame_id=RedeemBox_frame;
-                robot_to_base.transform.translation.x=1;
-                robot_to_base.transform.translation.y=1;
-                robot_to_base.transform.translation.z=1;
+                robot_to_base.transform.translation.x=0.3;
+                robot_to_base.transform.translation.y=0.4;
+                robot_to_base.transform.translation.z=k%3+1;
                 robot_to_base.transform.rotation.w=1;
                 robot_to_base.transform.rotation.x=0;
                 robot_to_base.transform.rotation.y=0;
                 robot_to_base.transform.rotation.z=0;
                 tran.sendTransform(robot_to_base);
+                k++;
                 RCLCPP_INFO(this->get_logger(),"virtual_box_position pub");
             });
             RCLCPP_INFO_STREAM(this->get_logger(),"use_virtual_box_position ture, use virtual box position");
