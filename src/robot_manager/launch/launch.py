@@ -73,19 +73,19 @@ def generate_launch_description():
 
     # future we will not use static but dynamic
 
-    rviz_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        output="log",
-        parameters=[
-            moveit_config.robot_description,
-            moveit_config.robot_description_semantic,
-            moveit_config.robot_description_kinematics,
-            moveit_config.planning_pipelines,
-            moveit_config.joint_limits,
-        ],
-        # namespace="example_robot",
-    )
+    # rviz_node = Node(
+    #     package="rviz2",
+    #     executable="rviz2",
+    #     output="log",
+    #     parameters=[
+    #         moveit_config.robot_description,
+    #         moveit_config.robot_description_semantic,
+    #         moveit_config.robot_description_kinematics,
+    #         moveit_config.planning_pipelines,
+    #         moveit_config.joint_limits,
+    #     ],
+    #     # namespace="example_robot",
+    # )
 
     # Publish TF robot state
     robot_state_publisher = Node(
@@ -98,7 +98,6 @@ def generate_launch_description():
     )
 
     # ros2_control
-
 
     ros2_control_node= Node(
         package="controller_manager",

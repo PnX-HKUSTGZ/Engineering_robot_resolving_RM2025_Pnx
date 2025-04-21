@@ -87,6 +87,11 @@ public:
 
     const std::shared_ptr<moveit_visual_tools::MoveItVisualTools> getVisualTools();
 
+    // get_robot_statement
+    void get_robot_statement();
+
+    // print_robot_info
+    void print_robot_info();
 private:
 
     // ROS2 相关成员
@@ -118,10 +123,14 @@ private:
     std::string PLANNING_GROUP;
     std::string EndEffectorJoint;
 
+    //
+    std::shared_ptr<rclcpp::TimerBase> print_robot_info_timer;
+
 private:
     //function
 
     void trigger_sub_callback(const std_msgs::msg::Bool::SharedPtr msg_);
+
 
 };
 

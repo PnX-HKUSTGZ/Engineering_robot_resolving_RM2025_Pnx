@@ -163,6 +163,8 @@ namespace Engineering_robot_RM2025_Pnx{
         visual_tools_->loadRemoteControl();
         RCLCPP_INFO(this->get_logger(), "Remote control loaded");
 
+        print_robot_info_timer=this->create_wall_timer(100ms,std::bind(&MoveItPlanningNode::print_robot_info,this));
+
         RCLCPP_INFO(this->get_logger(), "MoveIt components initialized");
         return true;
     }
@@ -310,6 +312,7 @@ namespace Engineering_robot_RM2025_Pnx{
             RCLCPP_ERROR(this->get_logger(), "Could not compute plan successfully");
             return false;
         }
+        RCLCPP_INFO(this->get_logger(), "compute plan successfully");
 
         #ifdef VISUALIZE
         // 可视化结果
@@ -364,5 +367,22 @@ namespace Engineering_robot_RM2025_Pnx{
         }
         
     }
+
+    void MoveItPlanningNode::get_robot_statement(){
+        robot_model_->getRootLinkName();
+    }
+
+    void MoveItPlanningNode::print_robot_info(){
+        auto Jointstate = robot_state_->getJointModelGroup("body");
+        std::vector<double> joint_values;
+        std::vector<std::string> joint_name=Jointstate->getVariableNames();
+        robot_state_->copyJointGroupPositions(Jointstate,joint_values);
+
+        RCLCPP_INFO(this->get_logger(),"robot joint statement:");
+        for(std::size_t i=0;i<joint_values.size();i++){
+            RCLCPP_INFO_STREAM(this->get_logger(),"["<<joint_name[i]<<"]:"<<joint_values[i]);
+        }
+    }
+
 
 } // namespace Engineering_robot_RM2025_Pnx
