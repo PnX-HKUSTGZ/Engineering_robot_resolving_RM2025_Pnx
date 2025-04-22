@@ -23,7 +23,7 @@ def generate_launch_description():
         "dof": "7", # freedom degree
     }
 
-    robot_controllerPath = get_package_share_directory("robot_controller")
+    robot_controllerPath = get_package_share_directory("engineering_robot_controller")
     example_robot_model_moveitPath = get_package_share_directory("example_robot_model_moveit")
 
     robot_description_path = os.path.join(example_robot_model_moveitPath,"config/example_robot_model.urdf.xacro")
@@ -60,7 +60,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             moveit_config.to_dict(),
-            use_sim_time,
+            # use_sim_time,
             ],
         # namespace="example_robot"
     )
@@ -96,7 +96,10 @@ def generate_launch_description():
         executable="robot_state_publisher",
         name="robot_state_publisher",
         output="both",
-        parameters=[moveit_config.robot_description,use_sim_time],
+        parameters=[
+            moveit_config.robot_description,
+            # use_sim_time
+            ],
         # namespace="example_robot",
     )
 
@@ -105,7 +108,8 @@ def generate_launch_description():
     ros2_control_node= Node(
         package="controller_manager",
         executable="ros2_control_node",
-        parameters=[ros2_controllers_path,use_sim_time],
+        # name="ros2_control_node",
+        parameters=[ros2_controllers_path],
         remappings=[
             ("/controller_manager/robot_description", "robot_description"),
         ], # because ros2_control_node listen to "/controller_manager/robot_description" but we always publish robot_description on topic "robot_description". we use this to talk node to map this to topic
@@ -122,7 +126,7 @@ def generate_launch_description():
             "controller_manager",
         ],# set this node use joint_state_broadcaster controller and conmunicate with /controller_manager
         # namespace="example_robot",
-        parameters=[use_sim_time]
+        # parameters=[use_sim_time]
     )
     # launch this to pub robot state to /joint_states
 
@@ -130,20 +134,22 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["body_controller", "-c", "controller_manager"], 
-        parameters=[use_sim_time]
+        # parameters=[use_sim_time]
         # namespace="example_robot",
     )
 
     main_node=Node(
         package="engineering_robot_controller",
-        executable="Engineering_robot_Controller",
-        name="Engineering_robot_Controller",
+        executable="engineering_robot_controller",
+        name="engineering_robot_controller",
         parameters=[
             config_path,
             moveit_config.to_dict(),
             {"planning_plugins":["ompl_interface/OMPLPlanner", "pilz_industrial_motion_planner/CommandPlanner"]},
-            use_sim_time
-            ]
+            # use_sim_time
+            ],
+        # respawn=True,
+        # respawn_delay=2.0
     )
 
     return LaunchDescription([
@@ -152,6 +158,7 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         arm_controller_spawner,
         move_group_node,
+        static_tf,
         # rviz_node,
         main_node,
     ])

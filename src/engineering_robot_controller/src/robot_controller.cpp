@@ -44,7 +44,7 @@ bool Engineering_robot_Controller::MoveitInit(){
     RCLCPP_INFO(this->get_logger(),"Load Moveit2 Part ok!");
 
     planner_trigger_=this->create_subscription<std_msgs::msg::Bool>(
-        "/Engineering_robot_Controller/tigger",
+        "/engineering_robot_controller/tigger",
         1,
         [this](const std::shared_ptr<std_msgs::msg::Bool> msg){
             this->planner_trigger_call_back(msg);

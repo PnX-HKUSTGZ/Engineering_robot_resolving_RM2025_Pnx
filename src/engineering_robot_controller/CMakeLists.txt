@@ -40,9 +40,9 @@ find_package(moveit_visual_tools REQUIRED) # 如果使用可视化工具
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
-add_executable(Engineering_robot_Controller ${SOURCES})
+add_executable(engineering_robot_controller ${SOURCES})
 
-ament_target_dependencies(Engineering_robot_Controller
+ament_target_dependencies(engineering_robot_controller
   rclcpp
   OpenCV
   sensor_msgs
@@ -59,7 +59,7 @@ ament_target_dependencies(Engineering_robot_Controller
   moveit_visual_tools
 )
 
-install(TARGETS Engineering_robot_Controller DESTINATION lib/${PROJECT_NAME})
+install(TARGETS engineering_robot_controller DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
