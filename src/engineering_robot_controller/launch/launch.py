@@ -146,7 +146,7 @@ def generate_launch_description():
             config_path,
             moveit_config.to_dict(),
             {"planning_plugins":["ompl_interface/OMPLPlanner", "pilz_industrial_motion_planner/CommandPlanner"]},
-            # use_sim_time
+            use_sim_time
             ],
         # respawn=True,
         # respawn_delay=2.0
@@ -158,7 +158,7 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         arm_controller_spawner,
         move_group_node,
-        static_tf,
-        # rviz_node,
+        # static_tf,
+        rviz_node,
         main_node,
     ])

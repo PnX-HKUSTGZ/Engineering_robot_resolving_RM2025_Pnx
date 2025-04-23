@@ -27,14 +27,26 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
 
 bool Engineering_robot_Controller::MoveitInit(){
     try{
-        move_group_=std::make_shared<moveit::planning_interface::MoveGroupInterface>(this->shared_from_this(),ARM_CONTROL_GROUP);
-        planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
+        move_group_=std::make_shared<moveit::planning_interface::MoveGroupInterface>(this->shared_from_this(),ARM_CONTROL_GROUP, this->tf2_buffer_);
+        RCLCPP_INFO(this->get_logger(),"move_group_ init ok! with group name: %s",ARM_CONTROL_GROUP.c_str());
+        
+        planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>("/");
+        RCLCPP_INFO(this->get_logger(),"PlanningSceneInterface initialized successfully");
+        
         arm_model_group=move_group_->getCurrentState()->getJointModelGroup(ARM_CONTROL_GROUP);
-        visual_tools_=std::shared_ptr<moveit_visual_tools::MoveItVisualTools>(new moveit_visual_tools::MoveItVisualTools(this->shared_from_this(),"robot_base","",move_group_->getRobotModel()));
+        RCLCPP_INFO(this->get_logger(),"JointModelGroup for %s loaded successfully", ARM_CONTROL_GROUP.c_str());
+        
+        visual_tools_=std::shared_ptr<moveit_visual_tools::MoveItVisualTools>(new moveit_visual_tools::MoveItVisualTools(this->shared_from_this(),"robot_base","robot",move_group_->getRobotModel()));
+        RCLCPP_INFO(this->get_logger(),"MoveItVisualTools initialized with reference frame: robot_base");
+        
         plan_=std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan>();
+        RCLCPP_INFO(this->get_logger(),"Motion plan container initialized");
 
         visual_tools_->deleteAllMarkers();
+        RCLCPP_INFO(this->get_logger(),"All previous markers deleted");
+        
         visual_tools_->loadRemoteControl();
+        RCLCPP_INFO(this->get_logger(),"Remote control loaded for visual tools");
     }
     catch(const std::exception& e){
         RCLCPP_ERROR(this->get_logger(),"MoveitInit fail with %s",e.what());
@@ -60,6 +72,7 @@ bool Engineering_robot_Controller::MoveitInit(){
 
 void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg){
 
+    RCLCPP_INFO(this->get_logger(),"planner_trigger_call_back called");
 
     geometry_msgs::msg::TransformStamped box_pos;
 
@@ -81,11 +94,23 @@ void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg
     target.position.y=box_pos.transform.translation.y;
     target.position.z=box_pos.transform.translation.z;
     target.orientation.w=1;
+
+    RCLCPP_INFO_STREAM(this->get_logger(),"Target position x"<<target.position.x);
+    RCLCPP_INFO_STREAM(this->get_logger(),"Target position y"<<target.position.y);
+    RCLCPP_INFO_STREAM(this->get_logger(),"Target position z"<<target.position.z);
     //TODO: 这里等待一个确切的坐标系转化以确定具体写法。
 
-    visual_tools_->publishText(target, "target_pose", rvt::WHITE, rvt::XLARGE);
+    auto robot_state_=move_group_->getCurrentState();
+    const auto names= robot_state_->getVariableNames();
+    const auto vals= robot_state_->getVariablePositions();
 
-    bool success = (move_group_->plan(*plan_) == moveit::core::MoveItErrorCode::SUCCESS);
+    for(std::size_t i=0;i<names.size();i++){
+        RCLCPP_INFO_STREAM(this->get_logger(), "joint position "<<names[i]<<":"<<vals[i]);
+    }
+
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+    bool success = (move_group_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
 
     if(!success){
         RCLCPP_WARN(this->get_logger(),"MoveGroup plan failed!");
@@ -93,7 +118,8 @@ void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg
     }
     RCLCPP_INFO(this->get_logger(),"MoveGroup plan successfully!");
 
-    moveit::core::MoveItErrorCode execute_state=move_group_->execute(plan_->trajectory_);
+    moveit::core::MoveItErrorCode execute_state=move_group_->execute(plan.trajectory_);
+
 
     if(execute_state==moveit::core::MoveItErrorCode::SUCCESS){
         RCLCPP_INFO(this->get_logger(),"MoveGroup execute successfully!");

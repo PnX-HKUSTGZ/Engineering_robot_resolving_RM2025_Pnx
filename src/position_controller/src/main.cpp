@@ -73,7 +73,7 @@ namespace Engineering_robot_RM2025_Pnx{
                 robot_to_base.child_frame_id=RedeemBox_frame;
                 robot_to_base.transform.translation.x=0.3;
                 robot_to_base.transform.translation.y=0.4;
-                robot_to_base.transform.translation.z=k%3+1;
+                robot_to_base.transform.translation.z=0.1*(k%3)+0.5;
                 robot_to_base.transform.rotation.w=1;
                 robot_to_base.transform.rotation.x=0;
                 robot_to_base.transform.rotation.y=0;
