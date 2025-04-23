@@ -30,7 +30,7 @@ bool Engineering_robot_Controller::MoveitInit(){
         move_group_=std::make_shared<moveit::planning_interface::MoveGroupInterface>(this->shared_from_this(),ARM_CONTROL_GROUP, this->tf2_buffer_);
         RCLCPP_INFO(this->get_logger(),"move_group_ init ok! with group name: %s",ARM_CONTROL_GROUP.c_str());
         
-        planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>("/");
+        planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
         RCLCPP_INFO(this->get_logger(),"PlanningSceneInterface initialized successfully");
         
         arm_model_group=move_group_->getCurrentState()->getJointModelGroup(ARM_CONTROL_GROUP);
@@ -88,25 +88,47 @@ void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg
         return;
     }
 
+    auto robot_state_=move_group_->getCurrentState();
+    const auto names= robot_state_->getVariableNames();
+    std::vector<double> vals;
+    robot_state_->copyJointGroupPositions(arm_model_group,vals);
+
+    vals[0]=-vals[0];
+
+    bool in_bound = move_group_->setJointValueTarget(vals);
+
+    for(std::size_t i=0;i<names.size();i++){
+        RCLCPP_INFO_STREAM(this->get_logger(), "joint position "<<names[i]<<":"<<vals[i]);
+    }
+
+
+
+    if(in_bound){
+        RCLCPP_INFO(this->get_logger(),"OK!!!!!!!!!!!!!!!");
+    }
+    else{
+        return;
+    }
     geometry_msgs::msg::Pose target;
 
-    target.position.x=box_pos.transform.translation.x;
-    target.position.y=box_pos.transform.translation.y;
-    target.position.z=box_pos.transform.translation.z;
-    target.orientation.w=1;
+    // target.position.x=box_pos.transform.translation.x;
+    // target.position.y=box_pos.transform.translation.y;
+    // target.position.z=box_pos.transform.translation.z;
+
+    target.position.x=-0.213;
+    target.position.y=-0.454;
+    target.position.z=0.519;
+    target.orientation.x=-0.710;
+    target.orientation.y=0.380;
+    target.orientation.z=-0.173;
+    target.orientation.w=0.567;
 
     RCLCPP_INFO_STREAM(this->get_logger(),"Target position x"<<target.position.x);
     RCLCPP_INFO_STREAM(this->get_logger(),"Target position y"<<target.position.y);
     RCLCPP_INFO_STREAM(this->get_logger(),"Target position z"<<target.position.z);
     //TODO: 这里等待一个确切的坐标系转化以确定具体写法。
 
-    auto robot_state_=move_group_->getCurrentState();
-    const auto names= robot_state_->getVariableNames();
-    const auto vals= robot_state_->getVariablePositions();
-
-    for(std::size_t i=0;i<names.size();i++){
-        RCLCPP_INFO_STREAM(this->get_logger(), "joint position "<<names[i]<<":"<<vals[i]);
-    }
+    // move_group_->setPoseTarget(target);
 
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
@@ -117,6 +139,8 @@ void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg
         return;
     }
     RCLCPP_INFO(this->get_logger(),"MoveGroup plan successfully!");
+
+
 
     moveit::core::MoveItErrorCode execute_state=move_group_->execute(plan.trajectory_);
 

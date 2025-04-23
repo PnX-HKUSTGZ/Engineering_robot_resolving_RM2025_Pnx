@@ -13,6 +13,9 @@ import launch_ros.descriptions
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import IncludeLaunchDescription, LogInfo
 from moveit_configs_utils import MoveItConfigsBuilder
+from launch.actions import DeclareLaunchArgument, GroupAction
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
 
@@ -152,6 +155,33 @@ def generate_launch_description():
         # respawn_delay=2.0
     )
 
+    # Get the path to the RViz configuration file
+    rviz_config_arg = DeclareLaunchArgument(
+        "rviz_config",
+        default_value="moveit.rviz",
+        description="RViz configuration file",
+    )
+    rviz_base = LaunchConfiguration("rviz_config")
+    rviz_config = PathJoinSubstitution(
+        [FindPackageShare("example_robot_model_moveit"), "config", rviz_base]
+    )
+
+    # Launch RViz
+    rviz_node = Node(
+        package="rviz2",
+        executable="rviz2",
+        output="log",
+        arguments=["-d", rviz_config],
+        parameters=[
+            moveit_config.robot_description,
+            moveit_config.robot_description_semantic,
+            moveit_config.robot_description_kinematics,
+            moveit_config.planning_pipelines,
+            moveit_config.joint_limits,
+        ],
+        # namespace="example_robot",
+    )
+
     return LaunchDescription([
         robot_state_publisher,
         ros2_control_node,
@@ -159,6 +189,7 @@ def generate_launch_description():
         arm_controller_spawner,
         move_group_node,
         # static_tf,
+        rviz_config_arg,
         rviz_node,
         main_node,
     ])

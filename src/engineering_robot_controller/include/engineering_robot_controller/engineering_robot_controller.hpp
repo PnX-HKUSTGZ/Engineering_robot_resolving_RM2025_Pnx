@@ -95,6 +95,10 @@ void planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg);
 };// Engineering_robot_Controller
 
 
+std::vector<double> eulerToQuaternion(double roll, double pitch, double yaw);
+std::vector<double> eulerToQuaternion(const std::vector<double>& euler);
+std::vector<double> quaternionToEuler(const std::vector<double>& q);
+
 } // namespace motion_planning_api
 
 #endif // Engineering_robot_RM2025_Pnx
