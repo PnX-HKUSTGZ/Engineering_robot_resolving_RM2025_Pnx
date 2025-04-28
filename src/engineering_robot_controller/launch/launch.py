@@ -1,13 +1,13 @@
-from launch import LaunchDescription
+from engineering_robot_controller.launch.launch import LaunchDescription
 from launch_ros.actions import Node
 from launch_ros.actions import PushRosNamespace
 from launch.substitutions import LaunchConfiguration
 import os
-import launch
+import engineering_robot_controller.launch.launch as launch
 import xacro
 import ament_index_python.packages
 from ament_index_python.packages import get_package_share_directory
-import launch
+import engineering_robot_controller.launch.launch as launch
 import launch_ros.actions
 import launch_ros.descriptions
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -27,13 +27,13 @@ def generate_launch_description():
     }
 
     robot_controllerPath = get_package_share_directory("engineering_robot_controller")
-    example_robot_model_moveitPath = get_package_share_directory("example_robot_model_moveit")
+    engineering_robot_moveitPath = get_package_share_directory("engineering_robot_moveit")
 
-    robot_description_path = os.path.join(example_robot_model_moveitPath,"config/example_robot_model.urdf.xacro")
-    robot_description_semantic_path = os.path.join(example_robot_model_moveitPath,"config/example_robot_model.srdf")
+    robot_description_path = os.path.join(engineering_robot_moveitPath,"config/engineering_robot.urdf.xacro")
+    robot_description_semantic_path = os.path.join(engineering_robot_moveitPath,"config/engineering_robot.srdf")
     config_path = os.path.join(robot_controllerPath,"config/sample_config.yaml")
-    moveit_controller = os.path.join(example_robot_model_moveitPath,"config","moveit_controllers.yaml")
-    ros2_controllers_path=os.path.join(example_robot_model_moveitPath,"config","ros2_controllers.yaml")
+    moveit_controller = os.path.join(engineering_robot_moveitPath,"config","moveit_controllers.yaml")
+    ros2_controllers_path=os.path.join(engineering_robot_moveitPath,"config","ros2_controllers.yaml")
 
     robot_description=xacro.process_file(robot_description_path).toxml()
 
@@ -44,7 +44,7 @@ def generate_launch_description():
 
     moveit_config=(
         MoveItConfigsBuilder(
-            "example_robot_model", package_name="example_robot_model_moveit"
+            "engineering_robot", package_name="engineering_robot_moveit"
         )
         .robot_description(mappings=launch_config)
         .trajectory_execution(file_path=moveit_controller,moveit_manage_controllers=True)
@@ -136,7 +136,7 @@ def generate_launch_description():
     arm_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["body_controller", "-c", "controller_manager"], 
+        arguments=["arm_controller", "-c", "controller_manager"], 
         # parameters=[use_sim_time]
         # namespace="example_robot",
     )
@@ -163,7 +163,7 @@ def generate_launch_description():
     )
     rviz_base = LaunchConfiguration("rviz_config")
     rviz_config = PathJoinSubstitution(
-        [FindPackageShare("example_robot_model_moveit"), "config", rviz_base]
+        [FindPackageShare("engineering_robot_moveit"), "config", rviz_base]
     )
 
     # Launch RViz
@@ -179,7 +179,6 @@ def generate_launch_description():
             moveit_config.planning_pipelines,
             moveit_config.joint_limits,
         ],
-        # namespace="example_robot",
     )
 
     return LaunchDescription([
@@ -188,8 +187,8 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         arm_controller_spawner,
         move_group_node,
-        # static_tf,
+        static_tf,
         rviz_config_arg,
         rviz_node,
-        main_node,
+        # main_node,
     ])

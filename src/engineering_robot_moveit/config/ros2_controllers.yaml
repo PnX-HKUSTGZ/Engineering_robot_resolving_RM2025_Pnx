@@ -13,12 +13,12 @@ controller_manager:
 arm_controller:
   ros__parameters:
     joints:
-      - J1_pris
-      - J1_rotate
-      - J2
-      - J3
-      - J4_x
-      - J4_y
+      - J1_pris_
+      - J1_rotate_
+      - J2_
+      - J3_
+      - J4_x_
+      - J4_y_
     command_interfaces:
       - position
       - velocity
