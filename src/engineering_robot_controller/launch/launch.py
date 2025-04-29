@@ -136,6 +136,8 @@ def generate_launch_description():
     config_path = os.path.join(robot_controllerPath,"config/sample_config.yaml")
     use_sim_time={"use_sim_time": True}
 
+    ld = LaunchDescription(generate_demo_launch(moveit_config))
+
     main_node=Node(
         package="engineering_robot_controller",
         executable="engineering_robot_controller",
@@ -149,8 +151,6 @@ def generate_launch_description():
     )
 
 
-    return LaunchDescription([
-        generate_demo_launch(moveit_config)
-    ])
+    return ld
 
 # ros2 launch engineering_robot_controller launch.py  use_rviz:="True"
