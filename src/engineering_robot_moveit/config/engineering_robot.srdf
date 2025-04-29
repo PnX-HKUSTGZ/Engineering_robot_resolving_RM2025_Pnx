@@ -10,7 +10,6 @@
     <!--CHAINS: When a chain is specified, all the links along the chain (including endpoints) are included in the group. Additionally, all the joints that are parents to included links are also included. This means that joints along the chain and the parent joint of the base link are included in the group-->
     <!--SUBGROUPS: Groups can also be formed by referencing to already defined group names-->
     <group name="arm">
-        <joint name="virtual_robot_base"/>
         <joint name="J1_pris_"/>
         <joint name="J1_rotate_"/>
         <joint name="J2_"/>
@@ -28,6 +27,14 @@
         <joint name="J2_" value="0"/>
         <joint name="J3_" value="0"/>
         <joint name="J4_x_" value="0"/>
+        <joint name="J4_y_" value="0"/>
+    </group_state>
+    <group_state name="get_mine" group="arm">
+        <joint name="J1_pris_" value="-0.2144"/>
+        <joint name="J1_rotate_" value="0.052"/>
+        <joint name="J2_" value="-2.4808"/>
+        <joint name="J3_" value="1.5787"/>
+        <joint name="J4_x_" value="-0.5378"/>
         <joint name="J4_y_" value="0"/>
     </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->

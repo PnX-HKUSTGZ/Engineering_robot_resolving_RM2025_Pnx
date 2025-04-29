@@ -1,13 +1,10 @@
-from engineering_robot_controller.launch.launch import LaunchDescription
 from launch_ros.actions import Node
 from launch_ros.actions import PushRosNamespace
 from launch.substitutions import LaunchConfiguration
 import os
-import engineering_robot_controller.launch.launch as launch
 import xacro
 import ament_index_python.packages
 from ament_index_python.packages import get_package_share_directory
-import engineering_robot_controller.launch.launch as launch
 import launch_ros.actions
 import launch_ros.descriptions
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -16,6 +13,7 @@ from moveit_configs_utils import MoveItConfigsBuilder
 from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
+from launch import LaunchDescription
 
 def generate_launch_description():
 
@@ -26,8 +24,11 @@ def generate_launch_description():
         "dof": "7", # freedom degree
     }
 
+    print(1)
     robot_controllerPath = get_package_share_directory("engineering_robot_controller")
+    print(1)
     engineering_robot_moveitPath = get_package_share_directory("engineering_robot_moveit")
+    print(1)
 
     robot_description_path = os.path.join(engineering_robot_moveitPath,"config/engineering_robot.urdf.xacro")
     robot_description_semantic_path = os.path.join(engineering_robot_moveitPath,"config/engineering_robot.srdf")
