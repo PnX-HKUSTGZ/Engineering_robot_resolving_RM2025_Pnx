@@ -21,6 +21,7 @@ struct NowPosition{
     单位是m或者角度
     */
     float pos[6];
+    float v[6];
     uint16_t crc16 = 0;
 };
 #pragma pack(pop)

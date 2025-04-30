@@ -11,8 +11,10 @@
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-
+  <build_depend>polygon_interface</build_depend>
+  <exec_depend>polygon_interface</exec_depend>
   <export>
     <build_type>ament_cmake</build_type>
+    <polygon_interface plugin="${prefix}/engineering_robot_hardware_interface.xml" />
   </export>
 </package>

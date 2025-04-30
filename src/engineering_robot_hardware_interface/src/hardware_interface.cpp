@@ -3,30 +3,19 @@
 namespace Engineering_robot_RM2025_Pnx{
 
 CallbackReturn ERHardwareInterface::on_init(const HardwareInfo & hardware_info){
+    RCLCPP_INFO_STREAM(logger,"on_init called!\n");
+    device_config_ = std::make_unique<drivers::serial_driver::SerialPortConfig>(baud_rate, fc, pt, sb);
     try{
         owned_ctx_=std::make_unique<drivers::common::IoContext>(2);
         serial_driver_=std::make_unique<drivers::serial_driver::SerialDriver>(*owned_ctx_);
+        serial_driver_->init_port(device_name_,*device_config_);
     }
     catch(const std::exception & e){
-        std::cerr<<"Load drivers::serial_driver::SerialDriver failed with "<<e.what()<<"\n";
+        RCLCPP_ERROR_STREAM(logger, "Load drivers::serial_driver::SerialDriver failed with "<<e.what()<<"\n");
         return CallbackReturn::ERROR;
     }
 
-    bool noerror=0;
-    while(!noerror){
-        try{
-            serial_driver_->init_port(device_name_, *device_config_);
-            if (!serial_driver_->port()->is_open()){
-                serial_driver_->port()->open();
-            }
-            noerror=1;
-        }
-        catch (const std::exception &ex){
-            std::cerr<<"open Serial failed with "<<ex.what()<<", wait 200 ms.\n";
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            noerror=0;
-        }
-    }
+    open();
 
     std::map<std::string,bool> joiny_interface;
     for(auto & i : hardware_info.joints){
@@ -36,15 +25,16 @@ CallbackReturn ERHardwareInterface::on_init(const HardwareInfo & hardware_info){
         if(!joiny_interface[i]) return CallbackReturn::ERROR;
     }
 
+    RCLCPP_INFO_STREAM(logger,"on_init called OK!\n");
     return CallbackReturn::SUCCESS;
 }
 
 void ERHardwareInterface::on_configure(){
-    std::cout<<"on_configure called!\n";
+    RCLCPP_INFO_STREAM(logger,"on_configure called!\n");
 }
 
 void ERHardwareInterface::on_cleanup(){
-    std::cout<<"on_cleanup  called!\n";
+    RCLCPP_INFO_STREAM(logger,"on_cleanup  called!\n");
 }
 
 std::vector<StateInterface> ERHardwareInterface::export_state_interfaces(){
@@ -52,7 +42,8 @@ std::vector<StateInterface> ERHardwareInterface::export_state_interfaces(){
 
     for(int i=0;i<6;i++){
         state.push_back(StateInterface(joint_name[i],"position",&state_data[i]));
-        std::cout<<"add state:"<<joint_name[i]<<"/"<<"position"<<std::endl;
+        state.push_back(StateInterface(joint_name[i],"velocity",&state_data[i]));
+        RCLCPP_INFO_STREAM(logger,"add state:"<<joint_name[i]);
     }
 
     return state;
@@ -63,55 +54,59 @@ std::vector<CommandInterface> ERHardwareInterface::export_command_interfaces(){
     for(int i=0;i<6;i++){
         inter.push_back(CommandInterface(joint_name[i],"position",&WID_p[i]));
         inter.push_back(CommandInterface(joint_name[i],"velocity",&WID_v[i]));
-        std::cout<<"add state:"<<joint_name[i]<<std::endl;
+        RCLCPP_INFO_STREAM(logger,"add command:"<<joint_name[i]);
     }
     return inter;
 }
 
-bool ERHardwareInterface::read_from_serial(double target[6]){
-    std::vector<uint8_t> header(1);
-    std::vector<uint8_t> data;
-    NowPosition packet;
-    data.reserve(sizeof(NowPosition));
-    try {
-        serial_driver_->port()->receive(header);
-        if (header[0] == 0x5A) {
-            data.resize(sizeof(NowPosition) - 1);
-            serial_driver_->port()->receive(data);
-
-            data.insert(data.begin(), header[0]);
-            fromVector(data,packet);
-
-            bool crc_ok = Engineering_robot_RM2025_Pnx::Verify_CRC16_Check_Sum(reinterpret_cast<const uint8_t *>(&packet), sizeof(packet));
-            if (!crc_ok) {
-                std::cerr<<"crc check fail!"<<std::endl;
-                throw "crc check fail!";
-                return 0;
-            }
-        }
-    }
-    catch(std::exception & e){
-        std::cerr<<"read_from_serial fialed with "<<e.what()<<std::endl;
-        throw e;
-        return 0;
-    }
-
-    for(int i=0;i<6;i++){
-        target[i]=packet.pos[i];
-    }
-    target[0]=-target[0];
-    std::cout<<"read_from_serial ok!"<<std::endl;
-    return 1;
-}
-
 
 return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::Duration & period){
-    std::cout<<"call read at"<<time.seconds()<<","<<time.nanoseconds()<<std::endl;
+
+    RCLCPP_INFO_STREAM(logger,"read call read at"<<time.seconds()<<","<<time.nanoseconds());
     try{
-        read_from_serial(state_data);
+        std::vector<uint8_t> header(1);
+        std::vector<uint8_t> data;
+        NowPosition packet;
+        data.reserve(sizeof(NowPosition));
+        bool get_message=0;
+        while(!get_message){
+            try {
+                serial_driver_->port()->receive(header);
+                if (header[0] == 0x5A) {
+                    data.resize(sizeof(NowPosition) - 1);
+                    serial_driver_->port()->receive(data);
+    
+                    data.insert(data.begin(), header[0]);
+                    fromVector(data,packet);
+    
+                    bool crc_ok = Engineering_robot_RM2025_Pnx::Verify_CRC16_Check_Sum(reinterpret_cast<const uint8_t *>(&packet), sizeof(packet));
+                    if (!crc_ok||packet.crc16==0) { // crc 0 表示虚拟串口
+                        RCLCPP_ERROR_STREAM(logger, "crc check fail!");
+                        throw "crc check fail!";
+                    }
+                    get_message=1;
+                }
+                else{
+                    RCLCPP_WARN_STREAM(logger,"read fail with the bad head: "<<header[0]);
+                    
+                }
+            }
+            catch(std::exception & e){
+                RCLCPP_ERROR_STREAM(logger, "read_from_serial fialed with "<<e.what());
+                throw e;
+            }
+        }
+    
+        for(int i=0;i<6;i++){
+            state_data[i]=packet.pos[i];
+            v[i]=packet.v[i];
+        }
+        state_data[0]=-state_data[0];
+        v[0]=-v[0];
+        RCLCPP_INFO_STREAM(logger,"read_from_serial ok!");
     }
     catch(const std::exception & e){
-        std::cerr<<"read_from_serial failed with "<<e.what()<<std::endl;
+        RCLCPP_ERROR_STREAM(logger, "read_from_serial failed with "<<e.what());
         return return_type::ERROR;
     }
     return return_type::OK;
@@ -120,26 +115,28 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
 return_type ERHardwareInterface::write(const rclcpp::Time & time, const rclcpp::Duration & period){
     SendDate packet;
     packet.reserved=0;
-    std::cout<<"write called!"<<std::endl;
+    RCLCPP_INFO_STREAM(logger,"write called!");
     for(int i=0;i<6;i++){
         packet.pos[i]=WID_p[i];
         packet.v[i]=WID_v[i];
-        std::cout<<"add "<<WID_p[i]<<","<<WID_v[i]<<std::endl;
+        RCLCPP_INFO_STREAM(logger,"add "<<WID_p[i]<<","<<WID_v[i]);
     }
+    packet.pos[0]=-packet.pos[0];
+    packet.v[0]=-packet.v[0];
     uint16_t crc16 = Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), sizeof(SendDate), 0xFFFF);
     packet.crc16=crc16;
-    std::cout<<"crc "<<crc16<<std::endl;
+    RCLCPP_INFO_STREAM(logger,"crc "<<crc16);
     std::vector<uint8_t> data = toVector(packet);
 
     try{
         serial_driver_->port()->send(data);
     }
     catch(std::exception & e){
-        std::cerr<<"serial_driver_->port()->send() failed with "<<e.what()<<std::endl;
+        RCLCPP_ERROR_STREAM(logger, "serial_driver_->port()->send() failed with "<<e.what());
         return return_type::ERROR;
     }
 
-    std::cout<<"write finish!"<<std::endl;
+    RCLCPP_INFO_STREAM(logger,"write finish!");
     return return_type::OK;
 
 }
@@ -152,7 +149,51 @@ void ERHardwareInterface::on_deactivate(){
 
 }
 
+void ERHardwareInterface::on_shutdown(){
+
+}
+
+void ERHardwareInterface::open(){
+    bool noerror=0;
+    while(!noerror){
+        try{
+            if (!serial_driver_->port()->is_open()){
+                serial_driver_->port()->open();
+            }
+            noerror=1;
+        }
+        catch (const std::exception &ex){
+            RCLCPP_ERROR_STREAM(logger, "open Serial failed with "<<ex.what()<<", wait 200 ms.\n");
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            noerror=0;
+        }
+    }
+}
+
+void ERHardwareInterface::reopen(){
+    if(serial_driver_->port()->is_open()){
+        serial_driver_->port()->close();
+    }
+    
+    bool noerror=0;
+    while(!noerror){
+        try{
+            if (!serial_driver_->port()->is_open()){
+                serial_driver_->port()->open();
+            }
+            noerror=1;
+        }
+        catch (const std::exception &ex){
+            RCLCPP_ERROR_STREAM(logger, "open Serial failed with "<<ex.what()<<", wait 200 ms.\n");
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            noerror=0;
+        }
+    }
+}
+
+
 void ERHardwareInterface::on_error(){
+    RCLCPP_INFO_STREAM(logger,"on_error called!");
     if(serial_driver_->port()->is_open()){
         serial_driver_->port()->close();
     }
@@ -160,28 +201,19 @@ void ERHardwareInterface::on_error(){
         owned_ctx_->waitForExit();
     }
     try{
-        owned_ctx_=std::make_unique<drivers::common::IoContext>(new IoContext(2));
-        serial_driver_=std::make_unique<drivers::serial_driver::SerialDriver>(new drivers::serial_driver::SerialDriver(*owned_ctx_));
+        owned_ctx_=std::make_unique<drivers::common::IoContext>(2);
+        serial_driver_=std::make_unique<drivers::serial_driver::SerialDriver>(*owned_ctx_);
     }
     catch(const std::exception & e){
-        std::cerr<<"Load drivers::serial_driver::SerialDriver failed with "<<e.what()<<"\n";
+        RCLCPP_ERROR_STREAM(logger, "Load drivers::serial_driver::SerialDriver failed with "<<e.what()<<"\n");
     }
 
-    bool noerror=0;
-    while(!noerror){
-        try{
-            serial_driver_->init_port(device_name_, *device_config_);
-            if (!serial_driver_->port()->is_open()){
-                serial_driver_->port()->open();
-            }
-            noerror=1;
-        }
-        catch (const std::exception &ex){
-            std::cerr<<"open Serial failed with "<<ex.what()<<", wait 200 ms.\n";
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            noerror=0;
-        }
-    }
-}
+    reopen();
 
 }
+
+
+}
+
+#include <pluginlib/class_list_macros.hpp>
+PLUGINLIB_EXPORT_CLASS(Engineering_robot_RM2025_Pnx::ERHardwareInterface, hardware_interface::SystemInterface)

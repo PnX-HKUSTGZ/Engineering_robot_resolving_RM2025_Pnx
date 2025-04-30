@@ -1,55 +1,9 @@
-<ros2_control name="engineering_robot_hardware_interface" type="system">
-    <hardware>
-        <!-- By default, set up controllers for simulation. This won't work on real hardware -->
-        <plugin>mock_components/GenericSystem</plugin>
-    </hardware>
-    <joint name="J1_pris_">
-        <command_interface name="position"/>
-        <command_interface name="velocity"/>
-        <state_interface name="position">
-            <param name="initial_value">0</param>
-        </state_interface>
-        <state_interface name="velocity"/>
-    </joint>
-    <joint name="J1_rotate_">
-        <command_interface name="position"/>
-        <command_interface name="velocity"/>
-        <state_interface name="position">
-            <param name="initial_value">0</param>
-        </state_interface>
-        <state_interface name="velocity"/>
-    </joint>
-    <joint name="J2_">
-        <command_interface name="position"/>
-        <command_interface name="velocity"/>
-        <state_interface name="position">
-            <param name="initial_value">0</param>
-        </state_interface>
-        <state_interface name="velocity"/>
-    </joint>
-    <joint name="J3_">
-        <command_interface name="position"/>
-        <command_interface name="velocity"/>
-        <state_interface name="position">
-            <param name="initial_value">0</param>
-        </state_interface>
-        <state_interface name="velocity"/>
-    </joint>
-    <joint name="J4_x_">
-        <command_interface name="position"/>
-        <command_interface name="velocity"/>
-        <state_interface name="position">
-            <param name="initial_value">0</param>
-        </state_interface>
-        <state_interface name="velocity"/>
-    </joint>
-    <joint name="J4_y_">
-        <command_interface name="position"/>
-        <command_interface name="velocity"/>
-        <state_interface name="position">
-            <param name="initial_value">0</param>
-        </state_interface>
-        <state_interface name="velocity"/>
-    </joint>
-
-</ros2_control>
+<library path="engineering_robot_hardware_interface"> <!-- library 标签指向你的共享库名称 -->
+  <class
+    name="Engineering_robot_RM2025_Pnx/ERHardwareInterface" 
+    base_class_type="hardware_interface::SystemInterface"
+    type="Engineering_robot_RM2025_Pnx::ERHardwareInterface">
+      <description>Hardware interface for the engineering robot. Implements a SystemInterface.</description>
+  </class>
+  <!-- 如果你的同一个库里有多个插件类，可以在 library 标签内再添加 class 标签 -->
+</library>

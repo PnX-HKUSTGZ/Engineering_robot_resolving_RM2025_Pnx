@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(serial_driver REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -28,6 +29,16 @@ ament_target_dependencies(engineering_robot_hardware_interface
   hardware_interface
   pluginlib
   rclcpp_lifecycle
+  serial_driver
+)
+
+target_include_directories(engineering_robot_hardware_interface
+  PUBLIC
+  include
+)
+
+ament_export_include_directories(
+  include
 )
 
 pluginlib_export_plugin_description_file(hardware_interface engineering_robot_hardware_interface.xml)
@@ -37,11 +48,18 @@ install(FILES
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
 install(TARGETS engineering_robot_hardware_interface
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin
 )
+
+ament_export_libraries(engineering_robot_hardware_interface)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
