@@ -72,7 +72,7 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
         while(!get_message){
             try {
                 serial_driver_->port()->receive(header);
-                if (header[0] == 0x5A) {
+                if (header[0] == 0xA5) {
                     data.resize(sizeof(NowPosition) - 1);
                     serial_driver_->port()->receive(data);
     
@@ -80,7 +80,7 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
                     fromVector(data,packet);
     
                     bool crc_ok = Engineering_robot_RM2025_Pnx::Verify_CRC16_Check_Sum(reinterpret_cast<const uint8_t *>(&packet), sizeof(packet));
-                    if (!crc_ok||packet.crc16==0) { // crc 0 表示虚拟串口
+                    if (!crc_ok&&packet.crc16!=0) { // crc 0 表示虚拟串口
                         RCLCPP_ERROR_STREAM(logger, "crc check fail!");
                         throw "crc check fail!";
                     }
