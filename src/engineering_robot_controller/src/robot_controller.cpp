@@ -6,12 +6,12 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
 
     // load param
     if(!this->has_parameter("ARM_CONTROL_GROUP")){
-        this->declare_parameter<std::string>("ARM_CONTROL_GROUP","body");
-        RCLCPP_WARN(this->get_logger(),"ARM_CONTROL_GROUP dosen't declare use default val \"body\"");
+        this->declare_parameter<std::string>("ARM_CONTROL_GROUP","arm");
+        RCLCPP_WARN(this->get_logger(),"ARM_CONTROL_GROUP dosen't declare use default val \"arm\"");
     }
     if(!this->has_parameter("END_EFFECTOR_CONTROL_GROUP")){
-        this->declare_parameter<std::string>("END_EFFECTOR_CONTROL_GROUP","hand");
-        RCLCPP_WARN(this->get_logger(),"END_EFFECTOR_CONTROL_GROUP dosen't declare use default val \"hand\"");
+        this->declare_parameter<std::string>("END_EFFECTOR_CONTROL_GROUP","sucker");
+        RCLCPP_WARN(this->get_logger(),"END_EFFECTOR_CONTROL_GROUP dosen't declare use default val \"sucker\"");
     }
     ARM_CONTROL_GROUP=this->get_parameter("ARM_CONTROL_GROUP").as_string();
     END_EFFECTOR_CONTROL_GROUP=this->get_parameter("END_EFFECTOR_CONTROL_GROUP").as_string();
@@ -64,6 +64,8 @@ bool Engineering_robot_Controller::MoveitInit(){
     
     RCLCPP_INFO(this->get_logger(),"Load sub Part ok!");
 
+    RCLCPP_INFO_STREAM(this->get_logger(), "Reference frame: " << move_group_->getPoseReferenceFrame());
+
     RCLCPP_INFO(this->get_logger(),"MoveitInit ok!");
 
     return 1;
@@ -93,64 +95,16 @@ void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg
     std::vector<double> vals;
     robot_state_->copyJointGroupPositions(arm_model_group,vals);
 
+    RCLCPP_INFO_STREAM(this->get_logger(), "Reference frame: " << move_group_->getPoseReferenceFrame());
     vals[0]=-vals[0];
 
-    bool in_bound = move_group_->setJointValueTarget(vals);
-
-    for(std::size_t i=0;i<names.size();i++){
-        RCLCPP_INFO_STREAM(this->get_logger(), "joint position "<<names[i]<<":"<<vals[i]);
-    }
-
-
-
-    if(in_bound){
-        RCLCPP_INFO(this->get_logger(),"OK!!!!!!!!!!!!!!!");
-    }
-    else{
-        return;
-    }
     geometry_msgs::msg::Pose target;
 
-    // target.position.x=box_pos.transform.translation.x;
-    // target.position.y=box_pos.transform.translation.y;
-    // target.position.z=box_pos.transform.translation.z;
-
-    target.position.x=-0.213;
-    target.position.y=-0.454;
-    target.position.z=0.519;
-    target.orientation.x=-0.710;
-    target.orientation.y=0.380;
-    target.orientation.z=-0.173;
-    target.orientation.w=0.567;
-
-    RCLCPP_INFO_STREAM(this->get_logger(),"Target position x"<<target.position.x);
-    RCLCPP_INFO_STREAM(this->get_logger(),"Target position y"<<target.position.y);
-    RCLCPP_INFO_STREAM(this->get_logger(),"Target position z"<<target.position.z);
-    //TODO: 这里等待一个确切的坐标系转化以确定具体写法。
-
-    // move_group_->setPoseTarget(target);
-
-    moveit::planning_interface::MoveGroupInterface::Plan plan;
-
-    bool success = (move_group_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-
-    if(!success){
-        RCLCPP_WARN(this->get_logger(),"MoveGroup plan failed!");
-        return;
-    }
-    RCLCPP_INFO(this->get_logger(),"MoveGroup plan successfully!");
+    target.position.x=box_pos.transform.translation.x;
+    target.position.y=box_pos.transform.translation.y;
+    target.position.z=box_pos.transform.translation.z;
 
 
-
-    moveit::core::MoveItErrorCode execute_state=move_group_->execute(plan.trajectory_);
-
-
-    if(execute_state==moveit::core::MoveItErrorCode::SUCCESS){
-        RCLCPP_INFO(this->get_logger(),"MoveGroup execute successfully!");
-    }
-    else{
-        RCLCPP_WARN(this->get_logger(),"MoveGroup execute failed!");
-    }
 }
 
 } // namespace Engineering_robot_RM2025_Pnx

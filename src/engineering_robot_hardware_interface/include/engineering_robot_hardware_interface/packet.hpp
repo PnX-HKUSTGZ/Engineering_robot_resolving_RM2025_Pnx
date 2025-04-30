@@ -20,8 +20,7 @@ struct NowPosition{
     J5
     单位是m或者角度
     */
-    float pos[6];
-    float v[6];
+    float posv[6][2];
     uint16_t crc16 = 0;
 };
 #pragma pack(pop)
@@ -39,10 +38,9 @@ struct SendDate{
     J4
     J5
     */
-    float pos[6];
+    float posv[6][2];
     //对应的速度
     //单位是m或者角速度
-    float v[6];
     uint16_t crc16 = 0;
 };
 #pragma pack(pop)

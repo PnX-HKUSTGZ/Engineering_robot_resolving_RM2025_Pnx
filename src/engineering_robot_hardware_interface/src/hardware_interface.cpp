@@ -62,7 +62,7 @@ std::vector<CommandInterface> ERHardwareInterface::export_command_interfaces(){
 
 return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::Duration & period){
 
-    RCLCPP_INFO_STREAM(logger,"read call read at"<<time.seconds()<<","<<time.nanoseconds());
+    // RCLCPP_INFO_STREAM(logger,"read call read at"<<time.seconds()<<","<<time.nanoseconds());
     try{
         std::vector<uint8_t> header(1);
         std::vector<uint8_t> data;
@@ -73,21 +73,30 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
             try {
                 serial_driver_->port()->receive(header);
                 if (header[0] == 0xA5) {
+                    RCLCPP_INFO_STREAM(logger,data.size());
                     data.resize(sizeof(NowPosition) - 1);
+                    RCLCPP_INFO_STREAM(logger,"===================================="<<data.size());
                     serial_driver_->port()->receive(data);
     
                     data.insert(data.begin(), header[0]);
+                    RCLCPP_INFO_STREAM(logger,"===================================="<<data.size());
+                    for(auto i : data){
+                        RCLCPP_INFO_STREAM(logger,""<<int(i));
+                    }
+                    RCLCPP_INFO_STREAM(logger,"=====================================");
                     fromVector(data,packet);
     
-                    bool crc_ok = Engineering_robot_RM2025_Pnx::Verify_CRC16_Check_Sum(reinterpret_cast<const uint8_t *>(&packet), sizeof(packet));
+                    int expectcrc=Get_CRC16_Check_Sum(reinterpret_cast<const uint8_t*>(&packet),52,0xFFFF);
+                    bool crc_ok= (expectcrc==packet.crc16);
+                    RCLCPP_INFO_STREAM(logger,"get_crc= "<<packet.crc16<<" expect_crc= "<<expectcrc);
                     if (!crc_ok&&packet.crc16!=0) { // crc 0 表示虚拟串口
-                        RCLCPP_ERROR_STREAM(logger, "crc check fail!");
-                        throw "crc check fail!";
+                        RCLCPP_ERROR_STREAM(logger, "crc check fail! crc:");
+                        // throw "crc check fail!";
                     }
                     get_message=1;
                 }
                 else{
-                    RCLCPP_WARN_STREAM(logger,"read fail with the bad head: "<<header[0]);
+                    RCLCPP_WARN_STREAM(logger,"read fail with the bad head: "<<int(header[0]));
                     
                 }
             }
@@ -98,12 +107,13 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
         }
     
         for(int i=0;i<6;i++){
-            state_data[i]=packet.pos[i];
-            v[i]=packet.v[i];
+            state_data[i]=packet.posv[i][0];
+            v[i]=packet.posv[i][1];
         }
         state_data[0]=-state_data[0];
         v[0]=-v[0];
-        RCLCPP_INFO_STREAM(logger,"read_from_serial ok!");
+        state_data[4]+=1.5707963267948966192313215;
+        // RCLCPP_INFO_STREAM(logger,"read_from_serial ok!");
     }
     catch(const std::exception & e){
         RCLCPP_ERROR_STREAM(logger, "read_from_serial failed with "<<e.what());
@@ -115,15 +125,16 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
 return_type ERHardwareInterface::write(const rclcpp::Time & time, const rclcpp::Duration & period){
     SendDate packet;
     packet.reserved=0;
-    RCLCPP_INFO_STREAM(logger,"write called!");
+    // RCLCPP_INFO_STREAM(logger,"write called!");
     for(int i=0;i<6;i++){
-        packet.pos[i]=WID_p[i];
-        packet.v[i]=WID_v[i];
-        RCLCPP_INFO_STREAM(logger,"add "<<WID_p[i]<<","<<WID_v[i]);
+        packet.posv[i][0]=WID_p[i];
+        packet.posv[i][1]=WID_v[i];
+        // RCLCPP_INFO_STREAM(logger,"add "<<WID_p[i]<<","<<WID_v[i]);
     }
-    packet.pos[0]=-packet.pos[0];
-    packet.v[0]=-packet.v[0];
-    uint16_t crc16 = Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), sizeof(SendDate), 0xFFFF);
+    packet.posv[4][0]-=1.57079632679496619;
+    packet.posv[0][0]=-packet.posv[0][0];
+    packet.posv[0][1]=-packet.posv[0][1];
+    uint16_t crc16 = Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), 52, 0xFFFF);
     packet.crc16=crc16;
     RCLCPP_INFO_STREAM(logger,"crc "<<crc16);
     std::vector<uint8_t> data = toVector(packet);
@@ -136,7 +147,7 @@ return_type ERHardwareInterface::write(const rclcpp::Time & time, const rclcpp::
         return return_type::ERROR;
     }
 
-    RCLCPP_INFO_STREAM(logger,"write finish!");
+    // RCLCPP_INFO_STREAM(logger,"write finish!");
     return return_type::OK;
 
 }
