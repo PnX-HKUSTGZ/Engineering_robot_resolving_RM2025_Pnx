@@ -1,5 +1,8 @@
 #include "sensor_msgs/msg/image.hpp"
 #include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <command_interfaces/msg/computer_state.hpp>
+#include <command_interfaces/msg/player_command.hpp>
 
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
@@ -10,6 +13,8 @@
 #include <algorithm>
 #include <sstream>
 #include <random>
+#include <thread>
+#include <atomic>
 
 #include <yaml-cpp/yaml.h>
 
@@ -54,6 +59,11 @@
 #include <moveit_msgs/msg/planning_scene.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
 #include <moveit/move_group_interface/move_group_interface.h>
+
+#include <geometric_shapes/shape_operations.h>
+#include <moveit_msgs/msg/collision_object.hpp>
+#include <geometric_shapes/shapes.h>
+
 #ifndef MOTION_PLANNING_API_NODE_HPP
 #define MOTION_PLANNING_API_NODE_HPP
 
@@ -92,12 +102,55 @@ std::shared_ptr<tf2_ros::TransformListener> tf2_listenser_;
 //receive a sign and control the arm move to target
 void planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg);
 
+// state_controll
+
+// load RedeemBox and mine
+bool LoadMine();
+bool RemoveMine();
+bool LoadRedeemBox();
+
+std::string MineMesh="package://engineering_robot_controller/meshes/Mine.STL";
+std::string RedeemBoxMesh="package://engineering_robot_controller/meshes/RedeemBox.STL";
+std::string RedeemBoxFram="object/box";
+
+// exchange_state_controller
+
+PlayerCommandContent player_command;
+std::mutex player_command_mutex;
+
+ComputerState computer_state;
+std::mutex computer_state_mutex;
+
+std::shared_ptr<rclcpp::Subscription<command_interfaces::msg::PlayerCommand> > player_command_sub_;
+std::shared_ptr<rclcpp::Publisher<command_interfaces::msg::ComputerState> > computer_state_pub_;
+
+void player_command_sub_callback(const command_interfaces::msg::PlayerCommand::SharedPtr & msg);
+PlayerCommandContent get_player_command();
+ComputerState get_computer_state();
+void set_player_command(const PlayerCommandContent & input_command);
+void set_computer_state(const ComputerState & input_state);
+
 };// Engineering_robot_Controller
 
 
 std::vector<double> eulerToQuaternion(double roll, double pitch, double yaw);
 std::vector<double> eulerToQuaternion(const std::vector<double>& euler);
 std::vector<double> quaternionToEuler(const std::vector<double>& q);
+
+struct PlayerCommandContent{
+    bool is_started=0;
+    bool is_tuning_finish=0;
+    bool is_finish=0;
+    bool breakout=0;
+};
+
+struct ComputerState{
+    uint8_t current_state;
+    uint8_t recognition:2;
+    uint8_t pos1_state:2;
+    uint8_t pos2_state:2;
+    uint8_t pos3_state:2;
+};
 
 } // namespace motion_planning_api
 

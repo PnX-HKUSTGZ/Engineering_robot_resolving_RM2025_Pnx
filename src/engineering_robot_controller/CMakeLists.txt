@@ -38,6 +38,9 @@ find_package(moveit_ros_planning REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED) # 如果使用 PlanningInterface
 find_package(moveit_visual_tools REQUIRED) # 如果使用可视化工具
 
+find_package(geometric_shapes REQUIRED)
+find_package(moveit_msgs REQUIRED)
+
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
 add_executable(engineering_robot_controller ${SOURCES})
@@ -57,11 +60,14 @@ ament_target_dependencies(engineering_robot_controller
   moveit_ros_planning
   moveit_ros_planning_interface
   moveit_visual_tools
+  geometric_shapes
+  moveit_msgs
 )
 
 install(TARGETS engineering_robot_controller DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY meshes DESTINATION share/${PROJECT_NAME})
 
 
 if(BUILD_TESTING)

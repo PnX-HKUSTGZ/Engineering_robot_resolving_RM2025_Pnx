@@ -52,7 +52,7 @@ bool Engineering_robot_Controller::MoveitInit(){
         RCLCPP_ERROR(this->get_logger(),"MoveitInit fail with %s",e.what());
         return 0;
     }
-
+ 
     RCLCPP_INFO(this->get_logger(),"Load Moveit2 Part ok!");
 
     planner_trigger_=this->create_subscription<std_msgs::msg::Bool>(
@@ -66,11 +66,106 @@ bool Engineering_robot_Controller::MoveitInit(){
 
     RCLCPP_INFO_STREAM(this->get_logger(), "Reference frame: " << move_group_->getPoseReferenceFrame());
 
+    // bool LoadRedeemBoxcheck=LoadRedeemBox();
+    // if(!LoadRedeemBoxcheck){
+    //     RCLCPP_ERROR(this->get_logger(),"LoadRedeemBoxcheck failed");
+    //     return 0;
+    // }
+    // else RCLCPP_INFO(this->get_logger(),"LoadRedeemBox ok!");
+
+    player_command_sub_=this->create_subscription<command_interfaces::msg::PlayerCommand>("/player_command",1,[this](const command_interfaces::msg::PlayerCommand::SharedPtr & msg){
+        player_command_sub_callback(msg);
+    });
+
     RCLCPP_INFO(this->get_logger(),"MoveitInit ok!");
 
     return 1;
 
 }
+
+void Engineering_robot_Controller::player_command_sub_callback(const command_interfaces::msg::PlayerCommand::SharedPtr & msg){
+    PlayerCommandContent input_command;
+    input_command.breakout=msg->breakout;
+    input_command.is_finish=msg->is_finish;
+    input_command.is_started=msg->is_started;
+    input_command.is_tuning_finish=msg->is_tuning_finish;
+    set_player_command(input_command);
+}
+
+
+PlayerCommandContent Engineering_robot_Controller::get_player_command(){
+    std::lock_guard<std::mutex> ul(player_command_mutex);
+    return player_command;
+}
+
+ComputerState Engineering_robot_Controller::get_computer_state(){
+    std::lock_guard<std::mutex> ul(computer_state_mutex);
+    return computer_state;
+}
+
+void Engineering_robot_Controller::set_player_command(const PlayerCommandContent & input_command){
+    std::lock_guard<std::mutex> ul(player_command_mutex);
+    player_command=input_command;
+}
+
+void Engineering_robot_Controller::set_computer_state(const ComputerState & input_state){
+    std::lock_guard<std::mutex> ul(player_command_mutex);
+    computer_state=input_state;
+}
+
+bool Engineering_robot_Controller::LoadRedeemBox(){
+
+    moveit_msgs::msg::CollisionObject collision_object;
+
+    collision_object.header.stamp=this->now();
+    collision_object.header.frame_id=RedeemBoxFram;
+    collision_object.id="RedeemBox";
+    std::shared_ptr<shapes::Mesh> mesh_(shapes::createMeshFromResource(RedeemBoxMesh));
+
+    if(!mesh_){
+        RCLCPP_ERROR(this->get_logger(), "Failed to load mesh from: %s", RedeemBoxMesh.c_str());
+        RCLCPP_ERROR(this->get_logger(), "Object 'RedeemBox' will NOT be added to the scene.");
+        return 0;
+    }
+
+    shape_msgs::msg::Mesh mesh_msg;
+    shapes::ShapeMsg mesh_msg_base;
+
+    shapes::constructMsgFromShape(mesh_.get(), mesh_msg_base);
+    mesh_msg = boost::get<shape_msgs::msg::Mesh>(mesh_msg_base);
+
+    if (mesh_msg.vertices.empty()){
+        RCLCPP_ERROR(this->get_logger(), "111Failed to load mesh from: %s", RedeemBoxMesh.c_str());
+        RCLCPP_ERROR(this->get_logger(), "Object 'RedeemBox' will NOT be added to the scene.");
+        return 0;
+    }
+
+    geometry_msgs::msg::Pose object_pose_relative_to_tf;
+
+    object_pose_relative_to_tf.position.x = 0.0;
+    object_pose_relative_to_tf.position.y = 0.0;
+    object_pose_relative_to_tf.position.z = 0.0;
+    object_pose_relative_to_tf.orientation.x = 0.0;
+    object_pose_relative_to_tf.orientation.y = 0.0;
+    object_pose_relative_to_tf.orientation.z = 0.0;
+    object_pose_relative_to_tf.orientation.w = 1.0; // Identity quaternion (no rotation)
+
+    collision_object.meshes.push_back(mesh_msg);
+    collision_object.mesh_poses.push_back(object_pose_relative_to_tf);
+    collision_object.operation = moveit_msgs::msg::CollisionObject::ADD;
+
+    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+    collision_objects.push_back(collision_object);
+
+    planning_scene_interface_->addCollisionObjects(collision_objects);
+
+    RCLCPP_INFO(this->get_logger(), "Collision object 'RedeemBox' added to the planning scene attached to frame '%s'.",
+        RedeemBoxFram.c_str());
+
+    return 1;
+
+}
+
 
 void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg){
 
