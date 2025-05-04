@@ -96,7 +96,7 @@ std::vector<StateInterface> ERHardwareInterface::export_state_interfaces(){
 
     for(int i=0;i<6;i++){
         state.push_back(StateInterface(joint_name[i],"position",&state_data[i]));
-        state.push_back(StateInterface(joint_name[i],"velocity",&state_data[i]));
+        state.push_back(StateInterface(joint_name[i],"velocity",&v[i]));
         // RCLCPP_INFO_STREAM(logger,"add state:"<<joint_name[i]);
     }
 
@@ -156,7 +156,10 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
             }
             catch(std::exception & e){
                 RCLCPP_ERROR_STREAM(logger, "read_from_serial fialed with "<<e.what());
-                throw e;
+                reopen();
+                get_message=0;
+                return return_type::OK;
+                // throw e;
             }
         }
     
@@ -189,7 +192,8 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
     }
     catch(const std::exception & e){
         RCLCPP_ERROR_STREAM(logger, "read_from_serial failed with "<<e.what());
-        return return_type::ERROR;
+        reopen();
+        return return_type::OK;
     }
     return return_type::OK;
 }
@@ -221,7 +225,7 @@ return_type ERHardwareInterface::write(const rclcpp::Time & time, const rclcpp::
     }
     catch(std::exception & e){
         RCLCPP_ERROR_STREAM(logger, "serial_driver_->port()->send() failed with "<<e.what());
-        return return_type::ERROR;
+        reopen();
     }
 
     // RCLCPP_INFO_STREAM(logger,"write finish!");

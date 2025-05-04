@@ -81,7 +81,7 @@ std::unique_ptr<drivers::serial_driver::SerialDriver> serial_driver_;
 // get from read
 double state_data[6];
 // get from read
-float v[6];
+double v[6];
 // 位置
 double WID_p[6];
 // 速度

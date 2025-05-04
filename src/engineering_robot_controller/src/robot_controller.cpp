@@ -295,8 +295,8 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     move_group_->setGoalOrientationTolerance(0.1);
     move_group_->setGoalPositionTolerance(0.01);
     move_group_->setPlanningTime(10);
-    move_group_->setMaxVelocityScalingFactor(1);
-    move_group_->setMaxAccelerationScalingFactor(1);
+    move_group_->setMaxVelocityScalingFactor(1.5);
+    move_group_->setMaxAccelerationScalingFactor(1.5);
 
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
@@ -314,9 +314,15 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         return;
     }
 
+    visual_tools_->deleteAllMarkers();
+    visual_tools_->publishTrajectoryLine(plan.trajectory_, arm_model_group);
+
     try{
         RCLCPP_INFO(this->get_logger(),"state one executing.....");
-        move_group_->execute(plan);
+        auto execute_res=move_group_->execute(plan);
+        if(execute_res!=moveit::core::MoveItErrorCode::SUCCESS){
+            return;
+        }
     }
     catch(const std::exception & e){
         RCLCPP_INFO(this->get_logger(),"state_one move failed! with %s",e.what());
@@ -420,7 +426,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     // move_group_->setPathConstraints(state2_constraints);
     // move_group_->setGoalTolerance()
     move_group_->setPoseTarget(primitive_pose);
-    move_group_->setGoalOrientationTolerance(0.1);
+    move_group_->setGoalOrientationTolerance(0.5);
     move_group_->setGoalPositionTolerance(0.1);
     move_group_->setPlanningTime(10);
     move_group_->setMaxVelocityScalingFactor(1);
@@ -444,7 +450,10 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     try{
         RCLCPP_INFO(this->get_logger(),"state two executing.....");
-        move_group_->execute(plan);
+        auto execute_res=move_group_->execute(plan);
+        if(execute_res!=moveit::core::MoveItErrorCode::SUCCESS){
+            return;
+        }
     }
     catch(const std::exception & e){
         RCLCPP_INFO(this->get_logger(),"state_two move failed! with %s",e.what());

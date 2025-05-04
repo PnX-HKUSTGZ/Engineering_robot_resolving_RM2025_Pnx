@@ -78,6 +78,13 @@ namespace Engineering_robot_RM2025_Pnx{
                 robot_to_base.transform.rotation.x=1;
                 robot_to_base.transform.rotation.y=0;
                 robot_to_base.transform.rotation.z=0;
+                // robot_to_base.transform.translation.x=0;
+                // robot_to_base.transform.translation.y=-0.8;
+                // robot_to_base.transform.translation.z=0.3;
+                // robot_to_base.transform.rotation.w=-0.3535534;
+                // robot_to_base.transform.rotation.x=0.3535534;
+                // robot_to_base.transform.rotation.y=-0.8535534;
+                // robot_to_base.transform.rotation.z=0.1464466;
                 tran.sendTransform(robot_to_base);
                 k++;
                 RCLCPP_INFO(this->get_logger(),"virtual_box_position pub");

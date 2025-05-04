@@ -29,14 +29,6 @@
         <joint name="J4_x_" value="0"/>
         <joint name="J4_y_" value="0"/>
     </group_state>
-    <group_state name="get_mine" group="arm">
-        <joint name="J1_pris_" value="-0.2144"/>
-        <joint name="J1_rotate_" value="0.052"/>
-        <joint name="J2_" value="-2.4808"/>
-        <joint name="J3_" value="1.5787"/>
-        <joint name="J4_x_" value="-0.5378"/>
-        <joint name="J4_y_" value="0"/>
-    </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
     <end_effector name="sucker" parent_link="J4_y" group="end"/>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
