@@ -12,6 +12,7 @@ find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(serial_driver REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(command_interfaces REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -30,6 +31,7 @@ ament_target_dependencies(engineering_robot_hardware_interface
   pluginlib
   rclcpp_lifecycle
   serial_driver
+  command_interfaces
 )
 
 target_include_directories(engineering_robot_hardware_interface

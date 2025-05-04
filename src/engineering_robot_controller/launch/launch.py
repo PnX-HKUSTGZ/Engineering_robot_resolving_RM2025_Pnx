@@ -153,19 +153,19 @@ def generate_launch_description():
         )
     )
 
-    ld.add_action(
-        Node(
-        package="engineering_robot_controller",
-        executable="engineering_robot_controller",
-        name="engineering_robot_controller",
-        parameters=[
-            config_path,
-            moveit_config.to_dict(),
-            {"planning_plugins":["ompl_interface/OMPLPlanner", "pilz_industrial_motion_planner/CommandPlanner"]},
-            use_sim_time
-            ],
-        )
-    )
+    # ld.add_action(
+    #     Node(
+    #     package="engineering_robot_controller",
+    #     executable="engineering_robot_controller",
+    #     name="engineering_robot_controller",
+    #     parameters=[
+    #         config_path,
+    #         moveit_config.to_dict(),
+    #         {"planning_plugins":["ompl_interface/OMPLPlanner", "pilz_industrial_motion_planner/CommandPlanner"]},
+    #         use_sim_time
+    #         ],
+    #     )
+    # )
 
     return ld
 

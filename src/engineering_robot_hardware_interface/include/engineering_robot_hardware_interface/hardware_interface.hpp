@@ -7,6 +7,8 @@
 #include <thread>
 #include <map>
 #include <rclcpp/rclcpp.hpp>
+#include <command_interfaces/msg/computer_state.hpp>
+#include <command_interfaces/msg/player_command.hpp>
 
 #ifndef engineering_robot_hardware_interface
 #define engineering_robot_hardware_interface
@@ -21,6 +23,22 @@ using  hardware_interface::return_type;
 using FlowControl = drivers::serial_driver::FlowControl;
 using Parity = drivers::serial_driver::Parity;
 using StopBits = drivers::serial_driver::StopBits;
+
+struct PlayerCommandContent{
+    rclcpp::Time command_time=rclcpp::Time(0,0);
+    bool is_started=0;
+    bool is_tuning_finish=0;
+    bool is_finish=0;
+    bool breakout=0;
+};
+
+struct ComputerState{
+    uint8_t current_state;
+    uint8_t recognition:2;
+    uint8_t pos1_state:2;
+    uint8_t pos2_state:2;
+    uint8_t pos3_state:2;
+};
 
 class ERHardwareInterface : public hardware_interface::SystemInterface{
 
@@ -73,6 +91,26 @@ uint32_t baud_rate=115200;
 FlowControl fc = FlowControl::NONE;
 Parity pt = Parity::NONE;
 StopBits sb = StopBits::ONE;
+
+private:
+
+std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> single_executor_;
+std::shared_ptr<std::thread> single_executor_thread_;
+std::shared_ptr<rclcpp::Node> node_;
+rclcpp::Subscription<command_interfaces::msg::ComputerState>::SharedPtr computer_state_sub_;
+rclcpp::Publisher<command_interfaces::msg::PlayerCommand>::SharedPtr player_command_pub_;
+
+PlayerCommandContent player_command;
+std::mutex player_command_mutex;
+
+ComputerState computer_state;
+std::mutex computer_state_mutex;
+
+void computer_state_sub_callback(command_interfaces::msg::ComputerState::ConstSharedPtr);
+PlayerCommandContent get_player_command();
+ComputerState get_computer_state();
+void set_player_command(const PlayerCommandContent & input_command);
+void set_computer_state(const ComputerState & input_state);
 
 };// ERHardwareInterface
 

@@ -8,7 +8,7 @@ namespace Engineering_robot_RM2025_Pnx{
     //declare para
 
         // RedeemBox_detector part
-        RedeemBox_frame=this->declare_parameter<std::string>("RedeemBox_frame","object/fixedbox");
+        RedeemBox_frame=this->declare_parameter<std::string>("RedeemBox_frame","object/box");
         use_virtual_box_position=this->declare_parameter<bool>("use_virtual_box_position",true);
 
         //robot_position
@@ -69,13 +69,13 @@ namespace Engineering_robot_RM2025_Pnx{
                 geometry_msgs::msg::TransformStamped robot_to_base;
 
                 robot_to_base.header.stamp=this->now();
-                robot_to_base.header.frame_id=fixed_frame;
+                robot_to_base.header.frame_id="map";
                 robot_to_base.child_frame_id=RedeemBox_frame;
-                robot_to_base.transform.translation.x=0.3;
-                robot_to_base.transform.translation.y=0.4;
-                robot_to_base.transform.translation.z=0.1*(k%3)+0.5;
-                robot_to_base.transform.rotation.w=1;
-                robot_to_base.transform.rotation.x=0;
+                robot_to_base.transform.translation.x=0;
+                robot_to_base.transform.translation.y=-0.8;
+                robot_to_base.transform.translation.z=0.3;
+                robot_to_base.transform.rotation.w=0;
+                robot_to_base.transform.rotation.x=1;
                 robot_to_base.transform.rotation.y=0;
                 robot_to_base.transform.rotation.z=0;
                 tran.sendTransform(robot_to_base);

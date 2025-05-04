@@ -66,6 +66,8 @@
 #include <moveit_msgs/msg/constraints.h>
 #include <moveit_msgs/msg/orientation_constraint.h>
 #include <moveit_msgs/msg/position_constraint.h>
+#include <moveit_msgs/msg/object_color.h>
+#include <std_msgs/msg/color_rgba.h>
 
 #ifndef MOTION_PLANNING_API_NODE_HPP
 #define MOTION_PLANNING_API_NODE_HPP
@@ -156,6 +158,10 @@ std::shared_ptr<rclcpp::Publisher<command_interfaces::msg::ComputerState> > comp
 rclcpp::TimerBase::SharedPtr computer_state_pub_timer_;
 std::shared_ptr<std::thread> commmand_executor_thread_;
 rclcpp::Duration player_commmand_time_threshold=rclcpp::Duration(0,1e8);
+
+// 0 no ok
+// 1 ok
+std::atomic<int> mine_exchange_pipe_state;
 
 void player_command_sub_callback(const command_interfaces::msg::PlayerCommand::ConstSharedPtr & msg);
 PlayerCommandContent get_player_command();

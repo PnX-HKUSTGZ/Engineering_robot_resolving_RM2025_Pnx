@@ -23,6 +23,21 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
     tf2_pub_=std::make_unique<tf2_ros::TransformBroadcaster>(this);
     RCLCPP_INFO(this->get_logger(),"Load tf2 ok!");
 
+    auto computer_state=get_computer_state();
+    computer_state.current_state=0;
+    computer_state.recognition=0;
+    computer_state.pos1_state=0;
+    computer_state.pos2_state=0;
+    computer_state.pos3_state=0;
+    set_computer_state(computer_state);
+
+    auto player_command=get_player_command();
+    player_command.breakout=0;
+    player_command.is_finish=0;
+    player_command.is_started=0;
+    player_command.is_tuning_finish=0;
+    set_player_command(player_command);
+
     RCLCPP_INFO(this->get_logger(),"Load Engineering_robot_Controller ok!");
 }
 
@@ -53,6 +68,9 @@ bool Engineering_robot_Controller::MoveitInit(){
         RCLCPP_ERROR(this->get_logger(),"MoveitInit fail with %s",e.what());
         return 0;
     }
+    move_group_->setEndEffectorLink("J5_end");
+
+    RCLCPP_INFO(this->get_logger(),"set the endeffector link : J5_end");
  
     RCLCPP_INFO(this->get_logger(),"Load Moveit2 Part ok!");
 
@@ -105,10 +123,10 @@ void Engineering_robot_Controller::commmand_executor(){
         // 休息一下，交出CPU
         std::this_thread::sleep_for(33ms);
         auto command=get_player_command();
-        if(this->now()-command.command_time>player_commmand_time_threshold){
-            RCLCPP_WARN_STREAM(this->get_logger(),"play_command time out! with time :["<<command.command_time.seconds()<<","<<command.command_time.nanoseconds()<<"]");
-            continue;
-        }
+        // if(this->now()-command.command_time>player_commmand_time_threshold){
+        //     RCLCPP_WARN_STREAM(this->get_logger(),"play_command time out! with time :["<<command.command_time.seconds()<<","<<command.command_time.nanoseconds()<<"]");
+        //     continue;
+        // }
         if(!command.is_started){
             continue;
         }
@@ -116,16 +134,18 @@ void Engineering_robot_Controller::commmand_executor(){
         RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe start!");
 
         std::thread mine_exchange_pipe_thread([this](){
+            mine_exchange_pipe_state=0;
             this->mine_exchange_pipe();
+            mine_exchange_pipe_state=1;
         });
 
         while(1){
             std::this_thread::sleep_for(33ms);
             auto now_command=get_player_command();
-            if(this->now()-now_command.command_time>player_commmand_time_threshold){
-                RCLCPP_WARN_STREAM(this->get_logger(),"play_command time out! with time :["<<command.command_time.seconds()<<","<<command.command_time.nanoseconds()<<"]");
-                continue;
-            }
+            // if(this->now()-now_command.command_time>player_commmand_time_threshold){
+            //     RCLCPP_WARN_STREAM(this->get_logger(),"play_command time out! with time :["<<command.command_time.seconds()<<","<<command.command_time.nanoseconds()<<"]");
+            //     continue;
+            // }
             if(now_command.breakout){
                 RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe stop by player");
                 RCLCPP_INFO(this->get_logger(),"try to stop mine_exchange_pipe");
@@ -134,7 +154,22 @@ void Engineering_robot_Controller::commmand_executor(){
                 RCLCPP_INFO(this->get_logger(),"stop mine_exchange_pipe!");
                 break;
             }
+            if(mine_exchange_pipe_state){
+                mine_exchange_pipe_thread.join();
+                RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe finish!");
+                break;
+            }
         }
+        
+        auto computer_state=get_computer_state();
+        computer_state.current_state=0;
+        computer_state.recognition=0;
+        computer_state.pos1_state=0;
+        computer_state.pos2_state=0;
+        computer_state.pos3_state=0;
+        set_computer_state(computer_state);
+
+        RCLCPP_INFO(this->get_logger(),"this command exec ok!");
 
     }
 }
@@ -172,7 +207,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         geometry_msgs::msg::TransformStamped msg_=msg;
         msg_.child_frame_id="object/fixedbox";
         msg_.header.stamp=this->now();
-        this->tf2_pub_->sendTransform(msg);
+        this->tf2_pub_->sendTransform(msg_);
     });
 
     //tf2 初始化完成==============================================================
@@ -184,14 +219,18 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
-    std::string ee_link=move_group_->getEndEffector();
+    std::string ee_link=move_group_->getEndEffectorLink();
     std::string reference_frame=move_group_->getPlanningFrame();
 
-    RCLCPP_INFO_STREAM(this->get_logger(),"EndEffector name :"<<move_group_->getEndEffector());
+    RCLCPP_INFO_STREAM(this->get_logger(),"EndEffector link name :"<<move_group_->getEndEffectorLink());
     RCLCPP_INFO_STREAM(this->get_logger(),"Planning frame name :"<<move_group_->getPlanningFrame());
 
 {    //第一阶段 ====================================================================
     clear_constraints_state();
+    if (!move_group_->setEndEffectorLink("J5_end")){
+        RCLCPP_ERROR(this->get_logger(),"set fail!");
+    }
+    else RCLCPP_INFO(this->get_logger(),"set the endeffector link : J5_end");
     computer_state.current_state=2;
     computer_state.pos1_state=PLANNING;
     set_computer_state(computer_state);
@@ -202,10 +241,10 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     geometry_msgs::msg::Point RedeemBoxstate1point;
     geometry_msgs::msg::Point transformedRedeemBoxstate1point;
     RedeemBoxstate1point.x=0;
-    RedeemBoxstate1point.y=0;
-    RedeemBoxstate1point.z=0.25;
+    RedeemBoxstate1point.y=-0.25;
+    RedeemBoxstate1point.z=0;
     doPointTransform(RedeemBoxstate1point,transformedRedeemBoxstate1point,msg);
-    RCLCPP_INFO_STREAM(this->get_logger(),"target one pose"<<RedeemBoxstate1point.x<<","<<RedeemBoxstate1point.y<<","<<RedeemBoxstate1point.z);
+    RCLCPP_INFO_STREAM(this->get_logger(),"target one pose ("<<transformedRedeemBoxstate1point.x<<","<<transformedRedeemBoxstate1point.y<<","<<transformedRedeemBoxstate1point.z<<")");
 
 
     moveit_msgs::msg::PositionConstraint pcon;
@@ -230,10 +269,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     primitive_pose.position.y = transformedRedeemBoxstate1point.y;
     primitive_pose.position.z = transformedRedeemBoxstate1point.z;
     // Orientation is usually identity for a box center
-    primitive_pose.orientation.w = 1.0;
-    primitive_pose.orientation.x = 0.0;
-    primitive_pose.orientation.y = 0.0;
-    primitive_pose.orientation.z = 0.0;
+    primitive_pose.orientation=msg.transform.rotation;
 
     pcon.constraint_region.primitives.push_back(primitive);
     pcon.constraint_region.primitive_poses.push_back(primitive_pose);
@@ -248,12 +284,19 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     ocon.orientation=msg.transform.rotation;
 
     ocon.absolute_x_axis_tolerance=0.01;
-    ocon.absolute_y_axis_tolerance=0.01;
-    ocon.absolute_z_axis_tolerance=M_PI;
+    ocon.absolute_y_axis_tolerance=M_PI;
+    ocon.absolute_z_axis_tolerance=0.01;
 
     state1_constraints.orientation_constraints.push_back(ocon);
 
-    move_group_->setPathConstraints(state1_constraints);
+    // move_group_->setPathConstraints(state1_constraints);
+    // move_group_->setGoalTolerance()
+    move_group_->setPoseTarget(primitive_pose);
+    move_group_->setGoalOrientationTolerance(0.1);
+    move_group_->setGoalPositionTolerance(0.01);
+    move_group_->setPlanningTime(10);
+    move_group_->setMaxVelocityScalingFactor(1);
+    move_group_->setMaxAccelerationScalingFactor(1);
 
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
@@ -272,6 +315,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     }
 
     try{
+        RCLCPP_INFO(this->get_logger(),"state one executing.....");
         move_group_->execute(plan);
     }
     catch(const std::exception & e){
@@ -294,13 +338,13 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     computer_state.current_state=3;
     set_computer_state(computer_state);
 
+    RCLCPP_INFO(this->get_logger(),"waiting player turnning command");
     while(1){
         auto player_command=get_player_command();
         if(player_command.is_tuning_finish){
             RCLCPP_INFO(this->get_logger(),"get play command , turnning ok!");
             break;
         }
-        RCLCPP_INFO(this->get_logger(),"waiting play turinning command.....");
         std::this_thread::sleep_for(20ms);
     }
 
@@ -325,7 +369,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     pcon.header.stamp=this->now();
     pcon.link_name=ee_link;
     pcon.target_point_offset.x=0;
-    pcon.target_point_offset.y=0;
+    pcon.target_point_offset.y=-0.04;
     pcon.target_point_offset.z=0;
     pcon.weight=1.0;
 
@@ -355,10 +399,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     primitive_pose.position.y = transformedRedeemBoxstate2point.y;
     primitive_pose.position.z = transformedRedeemBoxstate2point.z;
     // Orientation is usually identity for a box center
-    primitive_pose.orientation.w = 1.0;
-    primitive_pose.orientation.x = 0.0;
-    primitive_pose.orientation.y = 0.0;
-    primitive_pose.orientation.z = 0.0;
+    primitive_pose.orientation=msg.transform.rotation;
 
     pcon.constraint_region.primitives.push_back(primitive);
     pcon.constraint_region.primitive_poses.push_back(primitive_pose);
@@ -373,6 +414,17 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     ocon.orientation=current_pose_stamped.pose.orientation;
 
     state2_constraints.orientation_constraints.push_back(ocon);
+
+    RCLCPP_INFO_STREAM(this->get_logger(),"target two pose ("<<transformedRedeemBoxstate2point.x<<","<<transformedRedeemBoxstate2point.y<<","<<transformedRedeemBoxstate2point.z<<")");
+
+    // move_group_->setPathConstraints(state2_constraints);
+    // move_group_->setGoalTolerance()
+    move_group_->setPoseTarget(primitive_pose);
+    move_group_->setGoalOrientationTolerance(0.1);
+    move_group_->setGoalPositionTolerance(0.1);
+    move_group_->setPlanningTime(10);
+    move_group_->setMaxVelocityScalingFactor(1);
+    move_group_->setMaxAccelerationScalingFactor(1);
 
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
@@ -391,6 +443,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     }
 
     try{
+        RCLCPP_INFO(this->get_logger(),"state two executing.....");
         move_group_->execute(plan);
     }
     catch(const std::exception & e){
@@ -412,13 +465,13 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     computer_state.current_state=5;
     set_computer_state(computer_state);
 
+    RCLCPP_INFO(this->get_logger(),"waiting player release ok command....");
     while(1){
         auto player_command=get_player_command();
         if(player_command.is_finish){
             RCLCPP_INFO(this->get_logger(),"get player command , release ok!");
             break;
         }
-        RCLCPP_INFO(this->get_logger(),"waiting player release ok command.....");
         std::this_thread::sleep_for(20ms);
     }
 
@@ -540,22 +593,35 @@ bool Engineering_robot_Controller::LoadRedeemBox(){
 
     geometry_msgs::msg::Pose object_pose_relative_to_tf;
 
-    object_pose_relative_to_tf.position.x = 0.0;
-    object_pose_relative_to_tf.position.y = 0.0;
-    object_pose_relative_to_tf.position.z = 0.0;
-    object_pose_relative_to_tf.orientation.x = 0.0;
+    object_pose_relative_to_tf.position.x = -0.144;
+    object_pose_relative_to_tf.position.y = 0;
+    object_pose_relative_to_tf.position.z = 0.144;
+    object_pose_relative_to_tf.orientation.x = -0.7071068;
     object_pose_relative_to_tf.orientation.y = 0.0;
     object_pose_relative_to_tf.orientation.z = 0.0;
-    object_pose_relative_to_tf.orientation.w = 1.0; // Identity quaternion (no rotation)
+    object_pose_relative_to_tf.orientation.w = 0.7071068;
 
     collision_object.meshes.push_back(mesh_msg);
     collision_object.mesh_poses.push_back(object_pose_relative_to_tf);
     collision_object.operation = moveit_msgs::msg::CollisionObject::ADD;
 
+    moveit_msgs::msg::ObjectColor object_color;
+    object_color.id=collision_object.id;
+
+    object_color.color.r=0.0;
+    object_color.color.g=0.3;
+    object_color.color.b=0.4;
+    object_color.color.a=1.0;
+
+    moveit_msgs::msg::PlanningScene planning_scene;
+    planning_scene.is_diff=true;
+    planning_scene.object_colors.push_back(object_color);
+
     std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
     collision_objects.push_back(collision_object);
 
     planning_scene_interface_->addCollisionObjects(collision_objects);
+    planning_scene_interface_->applyPlanningScene(planning_scene);
 
     RCLCPP_INFO(this->get_logger(), "Collision object 'RedeemBox' added to the planning scene attached to frame '%s'.",
         RedeemBoxFram.c_str());
