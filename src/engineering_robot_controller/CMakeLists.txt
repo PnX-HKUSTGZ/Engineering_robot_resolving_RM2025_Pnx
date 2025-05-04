@@ -14,7 +14,7 @@ include_directories("/usr/include/pcl-1.12/")
 include_directories("/usr/include/eigen3/")
 include_directories("/usr/include/opencv4/")
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${PROJECT_SOURCE_DIR}/../..)  # Add project root directory
+include_directories(${PROJECT_SOURCE_DIR}/../../**)  # Add project root directory
 
 # find dependencies
 find_package(cv_bridge REQUIRED)
@@ -28,6 +28,7 @@ find_package(rclcpp_components REQUIRED)
 
 find_package(tf2_ros REQUIRED)
 find_package(tf2_sensor_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
@@ -40,12 +41,15 @@ find_package(moveit_visual_tools REQUIRED) # 如果使用可视化工具
 
 find_package(geometric_shapes REQUIRED)
 find_package(moveit_msgs REQUIRED)
+find_package(command_interfaces REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
 add_executable(engineering_robot_controller ${SOURCES})
 
 ament_target_dependencies(engineering_robot_controller
+  geometry_msgs
   rclcpp
   OpenCV
   sensor_msgs
@@ -62,6 +66,9 @@ ament_target_dependencies(engineering_robot_controller
   moveit_visual_tools
   geometric_shapes
   moveit_msgs
+  command_interfaces
+  tf2_geometry_msgs
+  
 )
 
 install(TARGETS engineering_robot_controller DESTINATION lib/${PROJECT_NAME})

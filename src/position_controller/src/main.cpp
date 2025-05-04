@@ -8,7 +8,7 @@ namespace Engineering_robot_RM2025_Pnx{
     //declare para
 
         // RedeemBox_detector part
-        RedeemBox_frame=this->declare_parameter<std::string>("RedeemBox_frame","object/box");
+        RedeemBox_frame=this->declare_parameter<std::string>("RedeemBox_frame","object/fixedbox");
         use_virtual_box_position=this->declare_parameter<bool>("use_virtual_box_position",true);
 
         //robot_position
@@ -37,7 +37,7 @@ namespace Engineering_robot_RM2025_Pnx{
         Robot_base_tf2_pub_=std::make_shared<tf2_ros::TransformBroadcaster>(this);
 
 
-        if(use_virtual_robot_position){
+        if(false){
             virtual_robot_position_timer_=this->create_wall_timer(50ms,[this](){
                 geometry_msgs::msg::TransformStamped robot_to_base;
 

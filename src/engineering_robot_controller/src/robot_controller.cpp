@@ -67,14 +67,14 @@ bool Engineering_robot_Controller::MoveitInit(){
 
     RCLCPP_INFO_STREAM(this->get_logger(), "Reference frame: " << move_group_->getPoseReferenceFrame());
 
-    // bool LoadRedeemBoxcheck=LoadRedeemBox();
-    // if(!LoadRedeemBoxcheck){
-    //     RCLCPP_ERROR(this->get_logger(),"LoadRedeemBoxcheck failed");
-    //     return 0;
-    // }
-    // else RCLCPP_INFO(this->get_logger(),"LoadRedeemBox ok!");
+    bool LoadRedeemBoxcheck=LoadRedeemBox();
+    if(!LoadRedeemBoxcheck){
+        RCLCPP_ERROR(this->get_logger(),"LoadRedeemBoxcheck failed");
+        return 0;
+    }
+    else RCLCPP_INFO(this->get_logger(),"LoadRedeemBox ok!");
 
-    player_command_sub_=this->create_subscription<command_interfaces::msg::PlayerCommand>("/player_command",1,[this](const command_interfaces::msg::PlayerCommand::SharedPtr & msg){
+    player_command_sub_=this->create_subscription<command_interfaces::msg::PlayerCommand>("/player_command",1,[this](const command_interfaces::msg::PlayerCommand::ConstSharedPtr & msg){
         player_command_sub_callback(msg);
     });
     computer_state_pub_=this->create_publisher<command_interfaces::msg::ComputerState>("/computer_state",1);
@@ -204,7 +204,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     RedeemBoxstate1point.x=0;
     RedeemBoxstate1point.y=0;
     RedeemBoxstate1point.z=0.25;
-    tf2::doTransform(RedeemBoxstate1point,transformedRedeemBoxstate1point,msg);
+    doPointTransform(RedeemBoxstate1point,transformedRedeemBoxstate1point,msg);
     RCLCPP_INFO_STREAM(this->get_logger(),"target one pose"<<RedeemBoxstate1point.x<<","<<RedeemBoxstate1point.y<<","<<RedeemBoxstate1point.z);
 
 
@@ -255,7 +255,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     move_group_->setPathConstraints(state1_constraints);
 
-    bool success=(move_group_->plan(plan)==moveit::planning_interface::MoveItErrorCode::SUCCESS);
+    bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
     if(success){
         computer_state.current_state=2;
@@ -318,7 +318,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     RedeemBoxstate2point.x=0;
     RedeemBoxstate2point.y=0;
     RedeemBoxstate2point.z=0;
-    tf2::doTransform(RedeemBoxstate2point,transformedRedeemBoxstate2point,msg);
+    doPointTransform(RedeemBoxstate2point,transformedRedeemBoxstate2point,msg);
 
     moveit_msgs::msg::PositionConstraint pcon;
     pcon.header.frame_id=reference_frame;
@@ -374,7 +374,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     state2_constraints.orientation_constraints.push_back(ocon);
 
-    bool success=(move_group_->plan(plan)==moveit::planning_interface::MoveItErrorCode::SUCCESS);
+    bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
     if(success){
         computer_state.current_state=4;
@@ -430,7 +430,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     move_group_->setNamedTarget("home");
 
-    bool success=(move_group_->plan(plan)==moveit::planning_interface::MoveItErrorCode::SUCCESS);
+    bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
     if(success){
         computer_state.current_state=6;
@@ -479,7 +479,7 @@ void Engineering_robot_Controller::computer_state_pub_callback(){
     computer_state_pub_->publish(msg);
 }
 
-void Engineering_robot_Controller::player_command_sub_callback(const command_interfaces::msg::PlayerCommand::SharedPtr & msg){
+void Engineering_robot_Controller::player_command_sub_callback(const command_interfaces::msg::PlayerCommand::ConstSharedPtr & msg){
     PlayerCommandContent input_command;
     input_command.command_time=msg->header.stamp;
     input_command.breakout=msg->breakout;

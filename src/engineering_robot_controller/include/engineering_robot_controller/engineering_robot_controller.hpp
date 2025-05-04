@@ -15,7 +15,7 @@
 #include <random>
 #include <thread>
 #include <atomic>
-#include <pthread.hpp>
+#include <pthread.h>
 
 #include <yaml-cpp/yaml.h>
 
@@ -86,6 +86,22 @@ namespace rvt = rviz_visual_tools;
 using namespace std::placeholders;
 using namespace std::chrono_literals;
 
+struct PlayerCommandContent{
+    rclcpp::Time command_time=rclcpp::Time(0,0);
+    bool is_started=0;
+    bool is_tuning_finish=0;
+    bool is_finish=0;
+    bool breakout=0;
+};
+
+struct ComputerState{
+    uint8_t current_state;
+    uint8_t recognition:2;
+    uint8_t pos1_state:2;
+    uint8_t pos2_state:2;
+    uint8_t pos3_state:2;
+};
+
 class Engineering_robot_Controller: public rclcpp::Node{
 
 public:
@@ -124,7 +140,7 @@ bool LoadRedeemBox();
 
 std::string MineMesh="package://engineering_robot_controller/meshes/Mine.STL";
 std::string RedeemBoxMesh="package://engineering_robot_controller/meshes/RedeemBox.STL";
-std::string RedeemBoxFram="object/box";
+std::string RedeemBoxFram="object/fixedbox";
 
 // exchange_state_controller
 
@@ -141,7 +157,7 @@ rclcpp::TimerBase::SharedPtr computer_state_pub_timer_;
 std::shared_ptr<std::thread> commmand_executor_thread_;
 rclcpp::Duration player_commmand_time_threshold=rclcpp::Duration(0,1e8);
 
-void player_command_sub_callback(const command_interfaces::msg::PlayerCommand::SharedPtr & msg);
+void player_command_sub_callback(const command_interfaces::msg::PlayerCommand::ConstSharedPtr & msg);
 PlayerCommandContent get_player_command();
 ComputerState get_computer_state();
 void set_player_command(const PlayerCommandContent & input_command);
@@ -159,21 +175,11 @@ std::vector<double> eulerToQuaternion(double roll, double pitch, double yaw);
 std::vector<double> eulerToQuaternion(const std::vector<double>& euler);
 std::vector<double> quaternionToEuler(const std::vector<double>& q);
 
-struct PlayerCommandContent{
-    rclcpp::Time command_time=rclcpp::Time(0,0);
-    bool is_started=0;
-    bool is_tuning_finish=0;
-    bool is_finish=0;
-    bool breakout=0;
-};
-
-struct ComputerState{
-    uint8_t current_state;
-    uint8_t recognition:2;
-    uint8_t pos1_state:2;
-    uint8_t pos2_state:2;
-    uint8_t pos3_state:2;
-};
+void doPointTransform(
+    const geometry_msgs::msg::Point &data_in,
+    geometry_msgs::msg::Point &data_out,
+    const geometry_msgs::msg::TransformStamped &transform
+);
 
 } // namespace motion_planning_api
 

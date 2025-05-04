@@ -66,4 +66,44 @@ std::vector<double> quaternionToEuler(const std::vector<double>& q) {
     return angles;
 }
 
+void doPointTransform(
+    const geometry_msgs::msg::Point &data_in,
+    geometry_msgs::msg::Point &data_out,
+    const geometry_msgs::msg::TransformStamped &transform
+)
+{
+    // 1. Convert geometry_msgs::Point to tf2::Vector3
+    //    tf2::Vector3 is suitable for representing 3D points or vectors
+    tf2::Vector3 point_in_tf2(data_in.x, data_in.y, data_in.z);
+
+    // 2. Convert geometry_msgs::Transform to tf2::Transform
+    //    A tf2::Transform internally stores a rotation (Quaternion) and a translation (Vector3).
+    //    It provides convenient methods for applying the transform (e.g., operator*).
+    //    The standard transform application is P_out = R * P_in + T,
+    //    where R is rotation, T is translation.
+    tf2::Quaternion rotation_tf2(
+        transform.transform.rotation.x,
+        transform.transform.rotation.y,
+        transform.transform.rotation.z,
+        transform.transform.rotation.w
+    );
+
+    tf2::Vector3 translation_tf2(
+        transform.transform.translation.x,
+        transform.transform.translation.y,
+        transform.transform.translation.z
+    );
+
+    tf2::Transform transform_tf2(rotation_tf2, translation_tf2);
+
+    // 3. Apply the transform to the point using tf2's operator*
+    //    tf2's operator* for Transform * Vector3 correctly performs R * point + T
+    tf2::Vector3 point_out_tf2 = transform_tf2 * point_in_tf2;
+
+    // 4. Convert the resulting tf2::Vector3 back to geometry_msgs::Point
+    data_out.x = point_out_tf2.x();
+    data_out.y = point_out_tf2.y();
+    data_out.z = point_out_tf2.z();
+}
+
 }// Engineering_robot_RM2025_Pnx
