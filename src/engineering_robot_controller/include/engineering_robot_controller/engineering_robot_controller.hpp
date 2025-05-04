@@ -15,6 +15,7 @@
 #include <random>
 #include <thread>
 #include <atomic>
+#include <pthread.hpp>
 
 #include <yaml-cpp/yaml.h>
 
@@ -59,15 +60,26 @@
 #include <moveit_msgs/msg/planning_scene.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
 #include <moveit/move_group_interface/move_group_interface.h>
-
 #include <geometric_shapes/shape_operations.h>
-#include <moveit_msgs/msg/collision_object.hpp>
 #include <geometric_shapes/shapes.h>
+#include <moveit_msgs/msg/collision_object.hpp>
+#include <moveit_msgs/msg/constraints.h>
+#include <moveit_msgs/msg/orientation_constraint.h>
+#include <moveit_msgs/msg/position_constraint.h>
 
 #ifndef MOTION_PLANNING_API_NODE_HPP
 #define MOTION_PLANNING_API_NODE_HPP
 
 #define VISUALIZE
+
+#define PLANNING 2
+#define FINISH 3
+#define FAILED 0
+#define MOVING 1
+
+#define REC_SUCCESS 3
+#define REC_ING 1
+#define REC_FAIL 0
 
 namespace Engineering_robot_RM2025_Pnx {
 namespace rvt = rviz_visual_tools;
@@ -98,6 +110,7 @@ rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr planner_trigger_;
 
 tf2_ros::Buffer::SharedPtr tf2_buffer_;
 std::shared_ptr<tf2_ros::TransformListener> tf2_listenser_;
+std::unique_ptr<tf2_ros::TransformBroadcaster> tf2_pub_;
 
 //receive a sign and control the arm move to target
 void planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg);
@@ -123,12 +136,21 @@ std::mutex computer_state_mutex;
 
 std::shared_ptr<rclcpp::Subscription<command_interfaces::msg::PlayerCommand> > player_command_sub_;
 std::shared_ptr<rclcpp::Publisher<command_interfaces::msg::ComputerState> > computer_state_pub_;
+// 以30hz的频率发布上位机状态
+rclcpp::TimerBase::SharedPtr computer_state_pub_timer_;
+std::shared_ptr<std::thread> commmand_executor_thread_;
+rclcpp::Duration player_commmand_time_threshold=rclcpp::Duration(0,1e8);
 
 void player_command_sub_callback(const command_interfaces::msg::PlayerCommand::SharedPtr & msg);
 PlayerCommandContent get_player_command();
 ComputerState get_computer_state();
 void set_player_command(const PlayerCommandContent & input_command);
 void set_computer_state(const ComputerState & input_state);
+void computer_state_pub_callback();
+
+void commmand_executor();
+void mine_exchange_pipe();
+void clear_constraints_state();
 
 };// Engineering_robot_Controller
 
@@ -138,6 +160,7 @@ std::vector<double> eulerToQuaternion(const std::vector<double>& euler);
 std::vector<double> quaternionToEuler(const std::vector<double>& q);
 
 struct PlayerCommandContent{
+    rclcpp::Time command_time=rclcpp::Time(0,0);
     bool is_started=0;
     bool is_tuning_finish=0;
     bool is_finish=0;

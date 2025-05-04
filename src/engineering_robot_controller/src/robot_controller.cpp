@@ -20,6 +20,7 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
 
     tf2_buffer_=std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf2_listenser_=std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_,this);
+    tf2_pub_=std::make_unique<tf2_ros::TransformBroadcaster>(this);
     RCLCPP_INFO(this->get_logger(),"Load tf2 ok!");
 
     RCLCPP_INFO(this->get_logger(),"Load Engineering_robot_Controller ok!");
@@ -76,6 +77,15 @@ bool Engineering_robot_Controller::MoveitInit(){
     player_command_sub_=this->create_subscription<command_interfaces::msg::PlayerCommand>("/player_command",1,[this](const command_interfaces::msg::PlayerCommand::SharedPtr & msg){
         player_command_sub_callback(msg);
     });
+    computer_state_pub_=this->create_publisher<command_interfaces::msg::ComputerState>("/computer_state",1);
+
+    computer_state_pub_timer_=this->create_wall_timer(33ms,[this](){
+        this->computer_state_pub_callback();
+    });
+
+    commmand_executor_thread_=std::make_shared<std::thread>([this](){
+        this->commmand_executor();
+    });
 
     RCLCPP_INFO(this->get_logger(),"MoveitInit ok!");
 
@@ -83,12 +93,400 @@ bool Engineering_robot_Controller::MoveitInit(){
 
 }
 
+void Engineering_robot_Controller::clear_constraints_state(){
+    move_group_->clearPathConstraints();
+    move_group_->clearPoseTargets();
+    move_group_->clearTrajectoryConstraints();
+}
+
+
+void Engineering_robot_Controller::commmand_executor(){
+    while(1){
+        // 休息一下，交出CPU
+        std::this_thread::sleep_for(33ms);
+        auto command=get_player_command();
+        if(this->now()-command.command_time>player_commmand_time_threshold){
+            RCLCPP_WARN_STREAM(this->get_logger(),"play_command time out! with time :["<<command.command_time.seconds()<<","<<command.command_time.nanoseconds()<<"]");
+            continue;
+        }
+        if(!command.is_started){
+            continue;
+        }
+
+        RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe start!");
+
+        std::thread mine_exchange_pipe_thread([this](){
+            this->mine_exchange_pipe();
+        });
+
+        while(1){
+            std::this_thread::sleep_for(33ms);
+            auto now_command=get_player_command();
+            if(this->now()-now_command.command_time>player_commmand_time_threshold){
+                RCLCPP_WARN_STREAM(this->get_logger(),"play_command time out! with time :["<<command.command_time.seconds()<<","<<command.command_time.nanoseconds()<<"]");
+                continue;
+            }
+            if(now_command.breakout){
+                RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe stop by player");
+                RCLCPP_INFO(this->get_logger(),"try to stop mine_exchange_pipe");
+                pthread_cancel(mine_exchange_pipe_thread.native_handle());
+                mine_exchange_pipe_thread.join();
+                RCLCPP_INFO(this->get_logger(),"stop mine_exchange_pipe!");
+                break;
+            }
+        }
+
+    }
+}
+
+void Engineering_robot_Controller::mine_exchange_pipe(){
+
+    auto computer_state=get_computer_state();
+
+    //tf2初始化==============================================================
+    computer_state.current_state=1;
+    computer_state.recognition=REC_ING;
+    set_computer_state(computer_state);
+
+    geometry_msgs::msg::TransformStamped msg;
+
+    bool get_tranform=0;
+    while(!get_tranform){
+        try{
+            msg=tf2_buffer_->lookupTransform(
+                "robot_base",
+                "object/box",
+                this->now(),
+                50ms
+            );
+            get_tranform=1;
+        }
+        catch(const std::exception & e){
+            RCLCPP_ERROR_STREAM(this->get_logger(),"look transform of RedeemBox fail with"<<e.what()<<", try again");
+            get_tranform=0;
+        }
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(),"get transform of RedeemBox and robot_base");
+
+    auto RedeemBox_pos_pub_timer=this->create_wall_timer(33ms,[this,msg](){
+        geometry_msgs::msg::TransformStamped msg_=msg;
+        msg_.child_frame_id="object/fixedbox";
+        msg_.header.stamp=this->now();
+        this->tf2_pub_->sendTransform(msg);
+    });
+
+    //tf2 初始化完成==============================================================
+    computer_state.current_state=1;
+    computer_state.recognition=REC_SUCCESS;
+    set_computer_state(computer_state);
+
+    RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe tf2 init ok!");
+
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+    std::string ee_link=move_group_->getEndEffector();
+    std::string reference_frame=move_group_->getPlanningFrame();
+
+    RCLCPP_INFO_STREAM(this->get_logger(),"EndEffector name :"<<move_group_->getEndEffector());
+    RCLCPP_INFO_STREAM(this->get_logger(),"Planning frame name :"<<move_group_->getPlanningFrame());
+
+{    //第一阶段 ====================================================================
+    clear_constraints_state();
+    computer_state.current_state=2;
+    computer_state.pos1_state=PLANNING;
+    set_computer_state(computer_state);
+
+    moveit_msgs::msg::Constraints state1_constraints;
+    state1_constraints.name="state one constraints";
+
+    geometry_msgs::msg::Point RedeemBoxstate1point;
+    geometry_msgs::msg::Point transformedRedeemBoxstate1point;
+    RedeemBoxstate1point.x=0;
+    RedeemBoxstate1point.y=0;
+    RedeemBoxstate1point.z=0.25;
+    tf2::doTransform(RedeemBoxstate1point,transformedRedeemBoxstate1point,msg);
+    RCLCPP_INFO_STREAM(this->get_logger(),"target one pose"<<RedeemBoxstate1point.x<<","<<RedeemBoxstate1point.y<<","<<RedeemBoxstate1point.z);
+
+
+    moveit_msgs::msg::PositionConstraint pcon;
+    pcon.header.frame_id=reference_frame;
+    pcon.header.stamp=this->now();
+    pcon.link_name=ee_link;
+    pcon.target_point_offset.x=0;
+    pcon.target_point_offset.y=0;
+    pcon.target_point_offset.z=0;
+    pcon.weight=1.0;
+
+    shape_msgs::msg::SolidPrimitive primitive;
+    primitive.type = shape_msgs::msg::SolidPrimitive::BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[0] = 0.005; // Tolerance in x (meters)
+    primitive.dimensions[1] = 0.005; // Tolerance in y
+    primitive.dimensions[2] = 0.005; // Tolerance in z  
+
+    geometry_msgs::msg::Pose primitive_pose;
+    // Set the target position (example values - replace with your desired position)
+    primitive_pose.position.x = transformedRedeemBoxstate1point.x;
+    primitive_pose.position.y = transformedRedeemBoxstate1point.y;
+    primitive_pose.position.z = transformedRedeemBoxstate1point.z;
+    // Orientation is usually identity for a box center
+    primitive_pose.orientation.w = 1.0;
+    primitive_pose.orientation.x = 0.0;
+    primitive_pose.orientation.y = 0.0;
+    primitive_pose.orientation.z = 0.0;
+
+    pcon.constraint_region.primitives.push_back(primitive);
+    pcon.constraint_region.primitive_poses.push_back(primitive_pose);
+    state1_constraints.position_constraints.push_back(pcon);
+
+    moveit_msgs::msg::OrientationConstraint ocon;
+    ocon.header.frame_id = reference_frame; // Constraint in the planning frame
+    ocon.header.stamp = this->now();
+    ocon.link_name = ee_link;
+    ocon.weight = 1.0;
+
+    ocon.orientation=msg.transform.rotation;
+
+    ocon.absolute_x_axis_tolerance=0.01;
+    ocon.absolute_y_axis_tolerance=0.01;
+    ocon.absolute_z_axis_tolerance=M_PI;
+
+    state1_constraints.orientation_constraints.push_back(ocon);
+
+    move_group_->setPathConstraints(state1_constraints);
+
+    bool success=(move_group_->plan(plan)==moveit::planning_interface::MoveItErrorCode::SUCCESS);
+
+    if(success){
+        computer_state.current_state=2;
+        computer_state.pos1_state=MOVING;
+        set_computer_state(computer_state);
+        RCLCPP_INFO(this->get_logger(),"state one constract ok!");
+    }
+    else{
+        computer_state.current_state=2;
+        computer_state.pos1_state=FAILED;
+        set_computer_state(computer_state);
+        RCLCPP_ERROR(this->get_logger(),"state one constract failed!");
+        return;
+    }
+
+    try{
+        move_group_->execute(plan);
+    }
+    catch(const std::exception & e){
+        RCLCPP_INFO(this->get_logger(),"state_one move failed! with %s",e.what());
+        computer_state.current_state=2;
+        computer_state.pos1_state=FAILED;
+        set_computer_state(computer_state);
+        return;
+    }
+    RCLCPP_INFO(this->get_logger(),"state_one move OK!");
+    computer_state.current_state=2;
+    computer_state.pos1_state=FINISH;
+    set_computer_state(computer_state);
+
+}    //第一阶段完成 ====================================================================
+
+
+// 第二阶段等待指令。。。。。
+
+    computer_state.current_state=3;
+    set_computer_state(computer_state);
+
+    while(1){
+        auto player_command=get_player_command();
+        if(player_command.is_tuning_finish){
+            RCLCPP_INFO(this->get_logger(),"get play command , turnning ok!");
+            break;
+        }
+        RCLCPP_INFO(this->get_logger(),"waiting play turinning command.....");
+        std::this_thread::sleep_for(20ms);
+    }
+
+{    //第二阶段 ====================================================================
+    clear_constraints_state();
+    computer_state.current_state=4;
+    computer_state.pos2_state=PLANNING;
+    set_computer_state(computer_state);
+
+    moveit_msgs::msg::Constraints state2_constraints;
+    state2_constraints.name="state two constraints";
+
+    geometry_msgs::msg::Point RedeemBoxstate2point;
+    geometry_msgs::msg::Point transformedRedeemBoxstate2point;
+    RedeemBoxstate2point.x=0;
+    RedeemBoxstate2point.y=0;
+    RedeemBoxstate2point.z=0;
+    tf2::doTransform(RedeemBoxstate2point,transformedRedeemBoxstate2point,msg);
+
+    moveit_msgs::msg::PositionConstraint pcon;
+    pcon.header.frame_id=reference_frame;
+    pcon.header.stamp=this->now();
+    pcon.link_name=ee_link;
+    pcon.target_point_offset.x=0;
+    pcon.target_point_offset.y=0;
+    pcon.target_point_offset.z=0;
+    pcon.weight=1.0;
+
+    shape_msgs::msg::SolidPrimitive primitive;
+    primitive.type = shape_msgs::msg::SolidPrimitive::BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[0] = 0.005; // Tolerance in x (meters)
+    primitive.dimensions[1] = 0.005; // Tolerance in y
+    primitive.dimensions[2] = 0.005; // Tolerance in z  
+
+    geometry_msgs::msg::PoseStamped current_pose_stamped;
+    try {
+         current_pose_stamped = move_group_->getCurrentPose(ee_link);
+         RCLCPP_INFO(this->get_logger(), "Retrieved current pose successfully.");
+    } 
+    catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Failed to get current pose: %s", e.what());
+        computer_state.current_state=4;
+        computer_state.pos2_state=FAILED;
+        set_computer_state(computer_state);
+        return;
+    }
+
+    geometry_msgs::msg::Pose primitive_pose;
+    // Set the target position (example values - replace with your desired position)
+    primitive_pose.position.x = transformedRedeemBoxstate2point.x;
+    primitive_pose.position.y = transformedRedeemBoxstate2point.y;
+    primitive_pose.position.z = transformedRedeemBoxstate2point.z;
+    // Orientation is usually identity for a box center
+    primitive_pose.orientation.w = 1.0;
+    primitive_pose.orientation.x = 0.0;
+    primitive_pose.orientation.y = 0.0;
+    primitive_pose.orientation.z = 0.0;
+
+    pcon.constraint_region.primitives.push_back(primitive);
+    pcon.constraint_region.primitive_poses.push_back(primitive_pose);
+    state2_constraints.position_constraints.push_back(pcon);
+
+    moveit_msgs::msg::OrientationConstraint ocon;
+    ocon.header.frame_id = reference_frame; // Constraint in the planning frame
+    ocon.header.stamp = this->now();
+    ocon.link_name = ee_link;
+    ocon.weight = 1.0;
+
+    ocon.orientation=current_pose_stamped.pose.orientation;
+
+    state2_constraints.orientation_constraints.push_back(ocon);
+
+    bool success=(move_group_->plan(plan)==moveit::planning_interface::MoveItErrorCode::SUCCESS);
+
+    if(success){
+        computer_state.current_state=4;
+        computer_state.pos2_state=MOVING;
+        set_computer_state(computer_state);
+        RCLCPP_INFO(this->get_logger(),"second state constract ok!");
+    }
+    else{
+        computer_state.current_state=4;
+        computer_state.pos2_state=FAILED;
+        set_computer_state(computer_state);
+        RCLCPP_ERROR(this->get_logger(),"second state constract failed!");
+        return;
+    }
+
+    try{
+        move_group_->execute(plan);
+    }
+    catch(const std::exception & e){
+        RCLCPP_INFO(this->get_logger(),"state_two move failed! with %s",e.what());
+        computer_state.current_state=4;
+        computer_state.pos2_state=FAILED;
+        set_computer_state(computer_state);
+        return;
+    }
+    RCLCPP_INFO(this->get_logger(),"state_two move OK!");
+    computer_state.current_state=4;
+    computer_state.pos2_state=FINISH;
+    set_computer_state(computer_state);
+
+}   //第二阶段完成 ====================================================================
+
+// 等待 释放矿石
+
+    computer_state.current_state=5;
+    set_computer_state(computer_state);
+
+    while(1){
+        auto player_command=get_player_command();
+        if(player_command.is_finish){
+            RCLCPP_INFO(this->get_logger(),"get player command , release ok!");
+            break;
+        }
+        RCLCPP_INFO(this->get_logger(),"waiting player release ok command.....");
+        std::this_thread::sleep_for(20ms);
+    }
+
+{//第三阶段 ====================================================================
+    clear_constraints_state();
+    computer_state.current_state=6;
+    computer_state.pos3_state=PLANNING;
+    set_computer_state(computer_state);
+
+    move_group_->setNamedTarget("home");
+
+    bool success=(move_group_->plan(plan)==moveit::planning_interface::MoveItErrorCode::SUCCESS);
+
+    if(success){
+        computer_state.current_state=6;
+        computer_state.pos3_state=MOVING;
+        set_computer_state(computer_state);
+        RCLCPP_INFO(this->get_logger(),"third state constract ok!");
+    }
+    else{
+        computer_state.current_state=6;
+        computer_state.pos3_state=FAILED;
+        set_computer_state(computer_state);
+        RCLCPP_ERROR(this->get_logger(),"third state constract failed!");
+        return;
+    }
+
+    try{
+        move_group_->execute(plan);
+    }
+    catch(const std::exception & e){
+        RCLCPP_INFO(this->get_logger(),"state_three move failed! with %s",e.what());
+        computer_state.current_state=6;
+        computer_state.pos3_state=FAILED;
+        set_computer_state(computer_state);
+        return;
+    }
+    RCLCPP_INFO(this->get_logger(),"state_three move OK!");
+    computer_state.current_state=6;
+    computer_state.pos3_state=FINISH;
+    set_computer_state(computer_state);
+
+}//第三阶段结束 ====================================================================
+
+    RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe finish!");
+
+}
+
+void Engineering_robot_Controller::computer_state_pub_callback(){
+    command_interfaces::msg::ComputerState msg;
+    auto current_state=get_computer_state();
+    msg.header.frame_id="/computer";
+    msg.header.stamp=this->now();
+    msg.current_state=current_state.current_state;
+    msg.pos1_state=current_state.pos1_state;
+    msg.pos2_state=current_state.pos2_state;
+    msg.pos3_state=current_state.pos3_state;
+    computer_state_pub_->publish(msg);
+}
+
 void Engineering_robot_Controller::player_command_sub_callback(const command_interfaces::msg::PlayerCommand::SharedPtr & msg){
     PlayerCommandContent input_command;
+    input_command.command_time=msg->header.stamp;
     input_command.breakout=msg->breakout;
     input_command.is_finish=msg->is_finish;
     input_command.is_started=msg->is_started;
     input_command.is_tuning_finish=msg->is_tuning_finish;
+
     set_player_command(input_command);
 }
 
