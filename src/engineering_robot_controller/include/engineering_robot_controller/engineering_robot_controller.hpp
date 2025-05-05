@@ -141,6 +141,16 @@ bool LoadAttachMine();
 bool LoadRedeemBox();
 bool RemoveRedeemBox();
 
+/**
+ * @brief 控制 MoveIt 规划场景中两个指定物体之间是否允许碰撞检测。
+ *
+ * @param name1 第一个物体的名称（或机器人连杆名称）。
+ * @param name2 第二个物体的名称（或机器人连杆名称）。
+ * @param enable_collision 如果为 true，则允许碰撞（即恢复碰撞检测）；如果为 false，则禁用碰撞（即忽略碰撞检测）。
+ * @return bool 如果成功应用了规划场景更新，则返回 true，否则返回 false。
+ */
+bool setCollisionsBetween(const std::string& name1, const std::string& name2, bool enable_collision);
+
 bool RemoveObject(const std::string & name);
 bool disableObjectRobotCollision(const std::string& object_id, const std::vector<std::string>& robot_link_names);
 bool disableObjectRobotCollision(const std::string& object_id, const std::string robot_link_name);
@@ -152,6 +162,13 @@ std::string RedeemBoxMesh="package://engineering_robot_controller/meshes/RedeemB
 std::string RedeemBoxFram="object/fixedbox";
 std::string robot_base="robot_base_link";
 std::string end_link="end_link";
+double minOrientationTolerance=0.1;
+double minPositionTolerance=0.1;
+double maxOrientationTolerance=0.5;
+// double maxPositionTolerance
+
+double state2MoveDis=0.2; //m
+
 
 // exchange_state_controller
 

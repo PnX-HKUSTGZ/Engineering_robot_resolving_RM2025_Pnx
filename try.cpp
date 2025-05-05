@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2012, Willow Garage, Inc.
+ *  Copyright (c) 2022, PickNik, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of Willow Garage nor the names of its
+ *   * Neither the name of SRI International nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -32,261 +32,225 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Sachin Chitta, Mike Lautman*/
+/* Author: Wyatt Rees */
+#include <moveit/move_group_interface/move_group_interface.hpp>
+#include <moveit/planning_scene_interface/planning_scene_interface.hpp>
+#include <moveit/robot_state/cartesian_interpolator.hpp>
+#include <moveit/trajectory_processing/time_optimal_trajectory_generation.hpp>
 
-#include <pluginlib/class_loader.hpp>
-
-// MoveIt
-#include <moveit/robot_model_loader/robot_model_loader.hpp>
-#include <moveit/robot_state/conversions.hpp>
-#include <moveit/planning_pipeline/planning_pipeline.hpp>
-#include <moveit/planning_interface/planning_interface.hpp>
-#include <moveit/planning_scene_monitor/planning_scene_monitor.hpp>
-#include <moveit/kinematic_constraints/utils.hpp>
+#include <moveit_msgs/msg/display_robot_state.hpp>
 #include <moveit_msgs/msg/display_trajectory.hpp>
-#include <moveit_msgs/msg/planning_scene.hpp>
+#include <moveit_msgs/msg/attached_collision_object.hpp>
+#include <moveit_msgs/msg/collision_object.hpp>
+
+#include <tf2_eigen/tf2_eigen.hpp>
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("motion_planning_pipeline");
+// All source files that use ROS logging should define a file-specific
+// static const rclcpp::Logger named LOGGER, located at the top of the file
+// and inside the namespace with the narrowest scope (if there is one)
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("kinematics_cost_fn_demo");
 
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions node_options;
   node_options.automatically_declare_parameters_from_overrides(true);
-  auto node = rclcpp::Node::make_shared("motion_planning_pipeline_tutorial", node_options);
+  auto node = rclcpp::Node::make_shared("kinematics_cost_fn_tutorial", node_options);
 
+  // We spin up a SingleThreadedExecutor for the current state monitor to get information
+  // about the robot's state.
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
   std::thread([&executor]() { executor.spin(); }).detach();
 
   // BEGIN_TUTORIAL
-  // Start
-  // ^^^^^
-  // Setting up to start using a planning pipeline is pretty easy. Before we can load the planner, we need two objects,
-  // a RobotModel and a PlanningScene.
   //
-  // We will start by instantiating a
-  // :moveit_codedir:`RobotModelLoader<moveit_ros/planning/robot_model_loader/include/moveit/robot_model_loader/robot_model_loader.hpp>`
-  // object, which will look up the robot description on the ROS
-  // parameter server and construct a
-  // :moveit_codedir:`RobotModel<moveit_core/robot_model/include/moveit/robot_model/robot_model.hpp>`
-  // for us to use.
-  robot_model_loader::RobotModelLoaderPtr robot_model_loader(
-      new robot_model_loader::RobotModelLoader(node, "robot_description"));
+  // Setup
+  // ^^^^^
+  //
+  // MoveIt operates on sets of joints called "planning groups" and stores them in an object called
+  // the ``JointModelGroup``. Throughout MoveIt, the terms "planning group" and "joint model group"
+  // are used interchangeably.
+  static const std::string PLANNING_GROUP = "panda_arm";
 
-  // Using the RobotModelLoader, we can construct a planning scene monitor that
-  // will create a planning scene, monitors planning scene diffs, and apply the diffs to it's
-  // internal planning scene. We then call startSceneMonitor, startWorldGeometryMonitor and
-  // startStateMonitor to fully initialize the planning scene monitor
-  planning_scene_monitor::PlanningSceneMonitorPtr psm(
-      new planning_scene_monitor::PlanningSceneMonitor(node, robot_model_loader));
+  // The
+  // :moveit_codedir:`MoveGroupInterface<moveit_ros/planning_interface/move_group_interface/include/moveit/move_group_interface/move_group_interface.hpp>`
+  // class can be easily set up using just the name of the planning group you would like to control and plan for.
+  moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
 
-  /* listen for planning scene messages on topic /XXX and apply them to the internal planning scene
-                       the internal planning scene accordingly */
-  psm->startSceneMonitor();
-  /* listens to changes of world geometry, collision objects, and (optionally) octomaps
-                                world geometry, collision objects and optionally octomaps */
-  psm->startWorldGeometryMonitor();
-  /* listen to joint state updates as well as changes in attached collision objects
-                        and update the internal planning scene accordingly*/
-  psm->startStateMonitor();
-
-  /* We can also use the RobotModelLoader to get a robot model which contains the robot's kinematic information */
-  moveit::core::RobotModelPtr robot_model = robot_model_loader->getModel();
-
-  /* We can get the most up to date robot state from the PlanningSceneMonitor by locking the internal planning scene
-     for reading. This lock ensures that the underlying scene isn't updated while we are reading it's state.
-     RobotState's are useful for computing the forward and inverse kinematics of the robot among many other uses */
-  moveit::core::RobotStatePtr robot_state(
-      new moveit::core::RobotState(planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
-
-  /* Create a JointModelGroup to keep track of the current robot pose and planning group. The Joint Model
-     group is useful for dealing with one set of joints at a time such as a left arm or a end effector */
-  const moveit::core::JointModelGroup* joint_model_group = robot_state->getJointModelGroup("panda_arm");
-
-  // We can now setup the PlanningPipeline object, which will use the ROS parameter server
-  // to determine the set of request adapters and the planning plugin to use
-  planning_pipeline::PlanningPipelinePtr planning_pipeline(
-      new planning_pipeline::PlanningPipeline(robot_model, node, "ompl"));
+  // Raw pointers are frequently used to refer to the planning group for improved performance.
+  const moveit::core::JointModelGroup* joint_model_group =
+      move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 
   // Visualization
   // ^^^^^^^^^^^^^
-  // The package MoveItVisualTools provides many capabilities for visualizing objects, robots,
-  // and trajectories in RViz as well as debugging tools such as step-by-step introspection of a script.
   namespace rvt = rviz_visual_tools;
-  moveit_visual_tools::MoveItVisualTools visual_tools(node, "panda_link0", "move_group_tutorial", psm);
-  visual_tools.deleteAllMarkers();
+  moveit_visual_tools::MoveItVisualTools visual_tools(node, "panda_link0", "move_group_tutorial",
+                                                      move_group.getRobotModel());
 
-  /* Remote control is an introspection tool that allows users to step through a high level script
-     via buttons and keyboard shortcuts in RViz */
+  visual_tools.deleteAllMarkers();
   visual_tools.loadRemoteControl();
 
-  /* RViz provides many types of markers, in this demo we will use text, cylinders, and spheres*/
   Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
-  text_pose.translation().z() = 1.75;
-  visual_tools.publishText(text_pose, "Motion Planning Pipeline Demo", rvt::WHITE, rvt::XLARGE);
+  text_pose.translation().z() = 1.0;
+  visual_tools.publishText(text_pose, "KinematicsCostFn_Demo", rvt::WHITE, rvt::XLARGE);
 
-  /* Batch publishing is used to reduce the number of messages being sent to RViz for large visualizations */
   visual_tools.trigger();
 
-  /* We can also use visual_tools to wait for user input */
+  // Start the demo
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^
   visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to start the demo");
 
-  // Pose Goal
-  // ^^^^^^^^^
-  // We will now create a motion plan request for the right arm of the Panda
-  // specifying the desired pose of the end-effector as input.
-  planning_interface::MotionPlanRequest req;
-  req.pipeline_id = "ompl";
-  req.planner_id = "RRTConnectkConfigDefault";
-  req.allowed_planning_time = 1.0;
-  req.max_velocity_scaling_factor = 1.0;
-  req.max_acceleration_scaling_factor = 1.0;
-  planning_interface::MotionPlanResponse res;
-  geometry_msgs::msg::PoseStamped pose;
-  pose.header.frame_id = "panda_link0";
-  pose.pose.position.x = 0.3;
-  pose.pose.position.y = 0.0;
-  pose.pose.position.z = 0.75;
-  pose.pose.orientation.w = 1.0;
+  // Computing IK solutions with cost functions
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  //
+  // When computing IK solutions for goal poses, we can specify a cost function that will be used to
+  // evaluate the "fitness" for a particular solution. At the time of writing this tutorial, this is
+  // only supported by the bio_ik kinematics plugin.
+  //
+  //
+  // To start, we'll create two pointers that references the current robot's state.
+  // RobotState is the object that contains all the current position/velocity/acceleration data.
+  // By making two copies, we can test the difference between IK calls that do/don't include cost functions
+  moveit::core::RobotStatePtr current_state = move_group.getCurrentState(10);
+  moveit::core::RobotStatePtr copy_state = move_group.getCurrentState(10);
+  // We store the starting joint positions so we can evaluate performance later.
+  std::vector<double> start_joint_positions;
+  current_state->copyJointGroupPositions(joint_model_group, start_joint_positions);
 
-  // A tolerance of 0.01 m is specified in position
-  // and 0.01 radians in orientation
-  std::vector<double> tolerance_pose(3, 0.1);
-  std::vector<double> tolerance_angle(3, 0.1);
+  // Set a target pose that we would like to solve IK for
+  geometry_msgs::msg::Pose target_pose;
+  target_pose.orientation.w = 1.0;
+  target_pose.position.x = 0.28;
+  target_pose.position.y = -0.2;
+  target_pose.position.z = 0.5;
 
-  // We will create the request as a constraint using a helper
-  // function available from the
-  // :moveit_codedir:`kinematic_constraints<moveit_core/kinematic_constraints/include/moveit/kinematic_constraints/kinematic_constraint.hpp>`
-  // package.
-  req.group_name = "panda_arm";
-  moveit_msgs::msg::Constraints pose_goal =
-      kinematic_constraints::constructGoalConstraints("panda_link8", pose, tolerance_pose, tolerance_angle);
-  req.goal_constraints.push_back(pose_goal);
+  moveit::core::GroupStateValidityCallbackFn callback_fn;
 
-  // Before planning, we will need a Read Only lock on the planning scene so that it does not modify the world
-  // representation while planning
-  {
-    planning_scene_monitor::LockedPlanningSceneRO lscene(psm);
-    /* Now, call the pipeline and check whether planning was successful. */
-    /* Check that the planning was successful */
-    if (!planning_pipeline->generatePlan(lscene, req, res) || res.error_code.val != res.error_code.SUCCESS)
+  // Cost functions usually require one to accept approximate IK solutions
+  kinematics::KinematicsQueryOptions opts;
+  opts.return_approximate_solution = true;
+
+  // Our cost function will optimize for minimal joint movement. Note that this is not the cost
+  // function that we pass directly to the IK call, but a helper function that we can also use
+  // to evaluate the solution.
+  const auto compute_l2_norm = [](std::vector<double> solution, std::vector<double> start) {
+    double sum = 0.0;
+    for (size_t ji = 0; ji < solution.size(); ji++)
     {
-      RCLCPP_ERROR(LOGGER, "Could not compute plan successfully");
-      rclcpp::shutdown();
-      return -1;
+      double d = solution[ji] - start[ji];
+      sum += d * d;
     }
-  }
-  // Visualize the result
-  // ^^^^^^^^^^^^^^^^^^^^
-  rclcpp::Publisher<moveit_msgs::msg::DisplayTrajectory>::SharedPtr display_publisher =
-      node->create_publisher<moveit_msgs::msg::DisplayTrajectory>("/display_planned_path", 1);
-  moveit_msgs::msg::DisplayTrajectory display_trajectory;
+    return sum;
+  };
 
-  /* Visualize the trajectory */
-  RCLCPP_INFO(LOGGER, "Visualizing the trajectory");
-  moveit_msgs::msg::MotionPlanResponse response;
-  res.getMessage(response);
+  // The weight of the cost function often needs tuning. A tradeoff exists between the accuracy of the
+  // solution pose and the extent to which the IK solver obeys our cost function.
+  const double weight = 0.0005;
+  const auto cost_fn = [&weight, &compute_l2_norm](const geometry_msgs::msg::Pose& /*goal_pose*/,
+                                                   const moveit::core::RobotState& solution_state,
+                                                   moveit::core::JointModelGroup const* jmg,
+                                                   const std::vector<double>& seed_state) {
+    std::vector<double> proposed_joint_positions;
+    solution_state.copyJointGroupPositions(jmg, proposed_joint_positions);
+    double cost = compute_l2_norm(proposed_joint_positions, seed_state);
+    return weight * cost;
+  };
 
-  display_trajectory.trajectory_start = response.trajectory_start;
-  display_trajectory.trajectory.push_back(response.trajectory);
-  display_publisher->publish(display_trajectory);
-  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+  // Now, we request an IK solution twice for the same pose. Once with a cost function, and once without.
+  current_state->setFromIK(joint_model_group, target_pose, 0.0 /* timeout */, callback_fn, opts, cost_fn);
+  copy_state->setFromIK(joint_model_group, target_pose, 0.0 /* timeout */, callback_fn, opts);
+
+  std::vector<double> solution;
+  current_state->copyJointGroupPositions(joint_model_group, solution);
+
+  std::vector<double> solution_no_cost_fn;
+  copy_state->copyJointGroupPositions(joint_model_group, solution_no_cost_fn);
+
+  // Now we can use our helper function from earlier to evaluate the effectiveness of the cost function.
+  double l2_solution = compute_l2_norm(solution, start_joint_positions);
+  RCLCPP_INFO_STREAM(LOGGER, "L2 norm of the solution WITH a cost function is " << l2_solution);
+  l2_solution = compute_l2_norm(solution_no_cost_fn, start_joint_positions);
+  RCLCPP_INFO_STREAM(LOGGER, "L2 norm of the solution WITHOUT a cost function is " << l2_solution);
+
+  // If we're happy with the solution, we can set it as a joint value target.
+  move_group.setJointValueTarget(solution);
+
+  // We lower the allowed maximum velocity and acceleration to 5% of their maximum.
+  // The default values are 10% (0.1).
+  // Set your preferred defaults in the joint_limits.yaml file of your robot's moveit_config
+  // or set explicit factors in your code if you need your robot to move faster.
+  move_group.setMaxVelocityScalingFactor(0.05);
+  move_group.setMaxAccelerationScalingFactor(0.05);
+
+  moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+  bool success = (move_group.plan(my_plan) == moveit::core::MoveItErrorCode::SUCCESS);
+  RCLCPP_INFO(LOGGER, "Visualizing plan 1 (joint space goal with cost function) %s", success ? "" : "FAILED");
+
+  // Visualize the plan in RViz:
+  visual_tools.deleteAllMarkers();
+  visual_tools.publishAxisLabeled(target_pose, "goal_pose");
+  visual_tools.publishText(text_pose, "Joint_Space_Goal", rvt::WHITE, rvt::XLARGE);
+  visual_tools.publishTrajectoryLine(my_plan.trajectory, joint_model_group);
   visual_tools.trigger();
 
-  /* Wait for user input */
-  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+  // Uncomment if you would like to execute the motion
+  /*
+  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to execute the motion");
+  move_group.execute(my_plan);
+  */
 
-  // Joint Space Goals
-  // ^^^^^^^^^^^^^^^^^
-  /* First, set the state in the planning scene to the final state of the last plan */
-  robot_state = planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentStateUpdated(response.trajectory_start);
-  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
-  moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
+  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue.");
 
-  // Now, setup a joint space goal
-  moveit::core::RobotState goal_state(*robot_state);
-  std::vector<double> joint_values = { -1.0, 0.7, 0.7, -1.5, -0.7, 2.0, 0.0 };
-  goal_state.setJointGroupPositions(joint_model_group, joint_values);
-  moveit_msgs::msg::Constraints joint_goal =
-      kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
+  // We can also specify cost functions when computing robot trajectories that must follow a cartesian path.
+  // First, let's change the target pose for the end of the path, so that if the previous motion plan was executed,
+  // we still have somewhere to move.
+  target_pose.position.y += 0.4;
+  target_pose.position.z -= 0.1;
+  target_pose.orientation.w = 0;
+  target_pose.orientation.x = -1.0;
+  Eigen::Isometry3d target;
+  tf2::fromMsg(target_pose, target);
 
-  req.goal_constraints.clear();
-  req.goal_constraints.push_back(joint_goal);
+  auto start_state = move_group.getCurrentState(10.0);
+  std::vector<moveit::core::RobotStatePtr> traj;
+  moveit::core::MaxEEFStep max_eef_step(0.01, 0.1);
+  moveit::core::CartesianPrecision cartesian_precision{ .translational = 0.001,
+                                                        .rotational = 0.01,
+                                                        .max_resolution = 1e-3 };
 
-  // Before planning, we will need a Read Only lock on the planning scene so that it does not modify the world
-  // representation while planning
-  {
-    planning_scene_monitor::LockedPlanningSceneRO lscene(psm);
-    /* Now, call the pipeline and check whether planning was successful. */
-    if (!planning_pipeline->generatePlan(lscene, req, res) || res.error_code.val != res.error_code.SUCCESS)
-    {
-      RCLCPP_ERROR(LOGGER, "Could not compute plan successfully");
-      rclcpp::shutdown();
-      return -1;
-    }
-  }
-  /* Visualize the trajectory */
-  RCLCPP_INFO(LOGGER, "Visualizing the trajectory");
-  res.getMessage(response);
-  display_trajectory.trajectory_start = response.trajectory_start;
-  display_trajectory.trajectory.push_back(response.trajectory);
-  // Now you should see two planned trajectories in series
-  display_publisher->publish(display_trajectory);
-  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+  // The trajectory, traj, passed to computeCartesianPath will contain several waypoints toward
+  // the goal pose, target. For each of these waypoints, the IK solver is queried with the given cost function.
+  const auto frac = moveit::core::CartesianInterpolator::computeCartesianPath(
+      start_state.get(), joint_model_group, traj, joint_model_group->getLinkModel("panda_link8"), target, true,
+      max_eef_step, cartesian_precision, callback_fn, opts, cost_fn);
+
+  RCLCPP_INFO(LOGGER, "Computed %f percent of cartesian path.", frac.value * 100.0);
+
+  // Once we've computed the points in our Cartesian path, we need to add timestamps to each point for execution.
+  robot_trajectory::RobotTrajectory rt(start_state->getRobotModel(), PLANNING_GROUP);
+  for (const moveit::core::RobotStatePtr& traj_state : traj)
+    rt.addSuffixWayPoint(traj_state, 0.0);
+  trajectory_processing::TimeOptimalTrajectoryGeneration time_param;
+  time_param.computeTimeStamps(rt, 1.0);
+
+  moveit_msgs::msg::RobotTrajectory rt_msg;
+  rt.getRobotTrajectoryMsg(rt_msg);
+
+  visual_tools.deleteAllMarkers();
+  visual_tools.publishTrajectoryLine(rt, joint_model_group);
+  visual_tools.publishText(text_pose, "Cartesian_Path_Goal", rvt::WHITE, rvt::XLARGE);
+  visual_tools.publishAxisLabeled(target_pose, "cartesian_goal_pose");
   visual_tools.trigger();
 
-  /* Wait for user input */
-  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+  // Once we've computed the timestamps, we can pass the trajectory to move_group to execute it.
+  move_group.execute(rt_msg);
+  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to end the demo.");
 
-  // Using a Planning Request Adapter
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  // A planning request adapter allows us to specify a series of operations that
-  // should happen either before planning takes place or after the planning
-  // has been done on the resultant path
-
-  /* First, set the state in the planning scene to the final state of the last plan */
-  robot_state = planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentStateUpdated(response.trajectory_start);
-  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
-  moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
-
-  // Now, set one of the joints slightly outside its upper limit
-  const moveit::core::JointModel* joint_model = joint_model_group->getJointModel("panda_joint3");
-  const moveit::core::JointModel::Bounds& joint_bounds = joint_model->getVariableBounds();
-  std::vector<double> tmp_values(1, 0.0);
-  tmp_values[0] = joint_bounds[0].min_position_ - 0.01;
-  robot_state->setJointPositions(joint_model, tmp_values);
-
-  req.goal_constraints.clear();
-  req.goal_constraints.push_back(pose_goal);
-
-  // Before planning, we will need a Read Only lock on the planning scene so that it does not modify the world
-  // representation while planning
-  {
-    planning_scene_monitor::LockedPlanningSceneRO lscene(psm);
-    /* Now, call the pipeline and check whether planning was successful. */
-    if (!planning_pipeline->generatePlan(lscene, req, res) || res.error_code.val != res.error_code.SUCCESS)
-    {
-      RCLCPP_ERROR(LOGGER, "Could not compute plan successfully");
-      rclcpp::shutdown();
-      return -1;
-    }
-  }
-  /* Visualize the trajectory */
-  RCLCPP_INFO(LOGGER, "Visualizing the trajectory");
-  res.getMessage(response);
-  display_trajectory.trajectory_start = response.trajectory_start;
-  display_trajectory.trajectory.push_back(response.trajectory);
-  /* Now you should see three planned trajectories in series*/
-  display_publisher->publish(display_trajectory);
-  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+  // END_TUTORIAL
+  visual_tools.deleteAllMarkers();
   visual_tools.trigger();
-
-  /* Wait for user input */
-  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to finish the demo");
-
-  RCLCPP_INFO(LOGGER, "Done");
 
   rclcpp::shutdown();
   return 0;

@@ -248,6 +248,9 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         return;
     }
 
+    IsObjectInScene("Mine");
+    RCLCPP_INFO(this->get_logger(),"6");
+
     //tf2 初始化完成==============================================================
     computer_state.current_state=1;
     computer_state.recognition=REC_SUCCESS;
@@ -263,6 +266,9 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     RCLCPP_INFO_STREAM(this->get_logger(),"EndEffector link name :"<<move_group_->getEndEffectorLink());
     RCLCPP_INFO_STREAM(this->get_logger(),"Planning frame name :"<<move_group_->getPlanningFrame());
 
+    IsObjectInScene("Mine");
+    RCLCPP_INFO(this->get_logger(),"5");
+
 {    //第一阶段 ====================================================================
     clear_constraints_state();
     // if (!move_group_->setEndEffectorLink("J5_end")){
@@ -275,6 +281,9 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     moveit_msgs::msg::Constraints state1_constraints;
     state1_constraints.name="state one constraints";
+
+    IsObjectInScene("Mine");
+    RCLCPP_INFO(this->get_logger(),"3");
 
     geometry_msgs::msg::Point RedeemBoxstate1point;
     geometry_msgs::msg::Point transformedRedeemBoxstate1point;
@@ -332,7 +341,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     
     move_group_->setPoseTarget(primitive_pose);
     move_group_->setGoalOrientationTolerance(0.1);
-    move_group_->setGoalPositionTolerance(0.1);
+    move_group_->setGoalPositionTolerance(0.01);
     move_group_->setPlanningTime(10);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
@@ -353,6 +362,9 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         return;
     }
 
+    IsObjectInScene("Mine");
+    RCLCPP_INFO(this->get_logger(),"2");
+
     visual_tools_->deleteAllMarkers();
     visual_tools_->publishTrajectoryLine(plan.trajectory_, arm_model_group);
 
@@ -370,6 +382,8 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         set_computer_state(computer_state);
         return;
     }
+    IsObjectInScene("Mine");
+    RCLCPP_INFO(this->get_logger(),"1");
     RCLCPP_INFO(this->get_logger(),"state_one move OK!");
     computer_state.current_state=2;
     computer_state.pos1_state=FINISH;
@@ -392,12 +406,44 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         }
         std::this_thread::sleep_for(20ms);
     }
+    // if(setCollisionsBetween(end_link,"RedeemBox",false)){
+    //     RCLCPP_INFO(this->get_logger(),"disable the Collision between Mine and RedeemBox");
+    // }
+    // else{
+    //     RCLCPP_ERROR(this->get_logger(),"disable the Collision between Mine and RedeemBox failed");
+    //     return ;
+    // }
+
+    if(move_group_->detachObject("Mine")){
+        RCLCPP_INFO(this->get_logger(),"detach Mine ok!");
+    }
+    else{
+        RCLCPP_ERROR(this->get_logger(),"detach Mine fail!");
+    }
+    RemoveObject("Mine");
 
 {    //第二阶段 ====================================================================
     clear_constraints_state();
     computer_state.current_state=4;
     computer_state.pos2_state=PLANNING;
     set_computer_state(computer_state);
+    
+    geometry_msgs::msg::PoseStamped current_pose_stamped;
+    geometry_msgs::msg::Pose current_pose;
+    try {
+         current_pose_stamped = move_group_->getCurrentPose(ee_link);
+         current_pose=current_pose_stamped.pose;
+
+         RCLCPP_INFO(this->get_logger(), "Retrieved current pose successfully.");
+    } 
+    catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Failed to get current pose: %s", e.what());
+        computer_state.current_state=4;
+        computer_state.pos2_state=FAILED;
+        set_computer_state(computer_state);
+        return;
+    }
+
 
     moveit_msgs::msg::Constraints state2_constraints;
     state2_constraints.name="state two constraints";
@@ -425,18 +471,12 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     primitive.dimensions[1] = 0.005; // Tolerance in y
     primitive.dimensions[2] = 0.005; // Tolerance in z  
 
-    geometry_msgs::msg::PoseStamped current_pose_stamped;
-    try {
-         current_pose_stamped = move_group_->getCurrentPose(ee_link);
-         RCLCPP_INFO(this->get_logger(), "Retrieved current pose successfully.");
-    } 
-    catch (const std::exception& e) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to get current pose: %s", e.what());
-        computer_state.current_state=4;
-        computer_state.pos2_state=FAILED;
-        set_computer_state(computer_state);
-        return;
-    }
+    // moveit_msgs::msg:: ocon;
+    // pcon.header.frame_id=reference_frame;
+    // pcon.header.stamp=this->now();
+    // pcon.link_name=ee_link;
+    // pcon.weight=1;
+    // pcon.
 
     geometry_msgs::msg::Pose primitive_pose;
     // Set the target position (example values - replace with your desired position)
@@ -446,26 +486,42 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     // Orientation is usually identity for a box center
     primitive_pose.orientation=current_pose_stamped.pose.orientation;
 
-    pcon.constraint_region.primitives.push_back(primitive);
-    pcon.constraint_region.primitive_poses.push_back(primitive_pose);
-    state2_constraints.position_constraints.push_back(pcon);
+    std::vector<geometry_msgs::msg::Pose> waypoints;
+    waypoints.push_back(current_pose);
+    waypoints.push_back(primitive_pose);
 
-    moveit_msgs::msg::OrientationConstraint ocon;
-    ocon.header.frame_id = reference_frame; // Constraint in the planning frame
-    ocon.header.stamp = this->now();
-    ocon.link_name = ee_link;
-    ocon.weight = 1.0;
+    moveit_msgs::msg::RobotTrajectory trajectory;
+    const double jump_threshold = 0.0;
+    const double eef_step = 0.01;
+    double fraction = move_group_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
 
-    ocon.orientation=current_pose_stamped.pose.orientation;
+    if (fraction >= 0.9){
+        RCLCPP_INFO_STREAM(this->get_logger(), "Path computed successfully. with fraction"<<fraction);
+    }
+    else{
+        RCLCPP_ERROR_STREAM(this->get_logger(), "Path computed Fail with fraction."<<fraction);
+    }
 
-    state2_constraints.orientation_constraints.push_back(ocon);
+    // pcon.constraint_region.primitives.push_back(primitive);
+    // pcon.constraint_region.primitive_poses.push_back(primitive_pose);
+    // state2_constraints.position_constraints.push_back(pcon);
 
-    RCLCPP_INFO_STREAM(this->get_logger(),"target two pose ("<<transformedRedeemBoxstate2point.x<<","<<transformedRedeemBoxstate2point.y<<","<<transformedRedeemBoxstate2point.z<<")");
+    // moveit_msgs::msg::OrientationConstraint ocon;
+    // ocon.header.frame_id = reference_frame; // Constraint in the planning frame
+    // ocon.header.stamp = this->now();
+    // ocon.link_name = ee_link;
+    // ocon.weight = 1.0;
+
+    // ocon.orientation=current_pose_stamped.pose.orientation;
+
+    // state2_constraints.orientation_constraints.push_back(ocon);
+
+    // RCLCPP_INFO_STREAM(this->get_logger(),"target two pose ("<<transformedRedeemBoxstate2point.x<<","<<transformedRedeemBoxstate2point.y<<","<<transformedRedeemBoxstate2point.z<<")");
 
     // move_group_->setPathConstraints(state2_constraints);
     // move_group_->setGoalTolerance()
     move_group_->setPoseTarget(primitive_pose);
-    move_group_->setGoalOrientationTolerance(0.05);
+    move_group_->setGoalOrientationTolerance(0.1);
     move_group_->setGoalPositionTolerance(0.01);
     move_group_->setPlanningTime(10);
     move_group_->setMaxVelocityScalingFactor(1);
@@ -666,6 +722,12 @@ bool Engineering_robot_Controller::IsObjectInScene(const std::string& object_id)
     // 1. 获取规划场景中所有已知碰撞体的ID列表
     std::vector<std::string> object_ids = planning_scene_interface_->getKnownObjectNames();
 
+
+    RCLCPP_INFO(this->get_logger(),"object_ids list:");
+    for(auto & i : object_ids){
+        RCLCPP_INFO(this->get_logger(),"%s",i.c_str());
+    }
+
     // 2. 在获取的ID列表中查找目标对象的ID
     auto it = std::find(object_ids.begin(), object_ids.end(), object_id);
 
@@ -754,6 +816,9 @@ bool Engineering_robot_Controller::LoadAttachMine(){
         return 0; 
     }
 
+    IsObjectInScene("Mine");
+    RCLCPP_INFO(this->get_logger(),"1");
+
     bool attachObjectCheck=move_group_->attachObject(collision_object.id,collision_object.header.frame_id);
     if(attachObjectCheck){
         RCLCPP_INFO(this->get_logger(), "attachObject %s , %s ok!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
@@ -762,6 +827,9 @@ bool Engineering_robot_Controller::LoadAttachMine(){
         RCLCPP_ERROR(this->get_logger(), "attachObjectCheck %s , %s failed!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
         return 0; 
     }
+
+    IsObjectInScene("Mine");
+    RCLCPP_INFO(this->get_logger(),"1");
 
     return 1;
 
@@ -849,6 +917,57 @@ bool Engineering_robot_Controller::LoadRedeemBox(){
 
 bool Engineering_robot_Controller::disableObjectRobotCollision(const std::string& object_id, const std::string robot_link_name){
     return disableObjectRobotCollision(object_id,std::vector<std::string>{robot_link_name});
+}
+
+/**
+ * @brief 控制 MoveIt 规划场景中两个指定物体之间是否允许碰撞检测。
+ *
+ * @param planning_scene_interface 对 PlanningSceneInterface 对象的引用。
+ * @param name1 第一个物体的名称（或机器人连杆名称）。
+ * @param name2 第二个物体的名称（或机器人连杆名称）。
+ * @param enable_collision 如果为 true，则允许碰撞（即恢复碰撞检测）；如果为 false，则禁用碰撞（即忽略碰撞检测）。
+ * @return bool 如果成功应用了规划场景更新，则返回 true，否则返回 false。
+ */
+bool Engineering_robot_Controller::setCollisionsBetween(const std::string& name1, const std::string& name2, bool enable_collision){
+    if (name1.empty() || name2.empty()){
+        RCLCPP_INFO(this->get_logger(),"Cannot set collision status with empty object names.");
+        return false;
+    }
+    // if(!(IsObjectInScene(name1)&&IsObjectInScene(name2))){
+    //     RCLCPP_INFO(this->get_logger(),"object name don't exist");
+    //     return false;
+    // }
+    if (name1 == name2){
+        RCLCPP_WARN_STREAM(this->get_logger(),"Attempted to set collision status between object '" << name1 << "' and itself. This usually doesn't have an effect or is not needed.");
+        return true; // Consider this a successful no-op
+    }
+
+    RCLCPP_INFO_STREAM(this->get_logger(),"Attempting to " << (enable_collision ? "enable" : "disable") << " collision detection between '" << name1 << "' and '" << name2 << "'");
+
+// 创建一个 PlanningScene 消息对象，用于描述要应用的更改
+    moveit_msgs::msg::PlanningScene planning_scene;
+    moveit_msgs::msg::AllowedCollisionEntry msg;
+    msg.enabled.push_back(enable_collision);
+
+// 标记这是一个增量更新，只修改 AllowedCollisionMatrix
+    planning_scene.is_diff = true;
+
+    planning_scene.allowed_collision_matrix.entry_names.push_back(name1);
+    planning_scene.allowed_collision_matrix.entry_names.push_back(name2);
+    planning_scene.allowed_collision_matrix.entry_values.push_back(msg);
+    planning_scene.allowed_collision_matrix.entry_values.push_back(msg);
+
+// 应用修改后的规划场景
+    bool success = planning_scene_interface_->applyPlanningScene(planning_scene);
+
+    if (success){
+        RCLCPP_INFO_STREAM(this->get_logger(),"Successfully " << (enable_collision ? "enabled" : "disabled") << " collision detection between '" << name1 << "' and '" << name2 << "'.");
+    }
+    else{
+        RCLCPP_ERROR_STREAM(this->get_logger(),"Failed to " << (enable_collision ? "enable" : "disable") << " collision detection between '" << name1 << "' and '" << name2 << "'. Check MoveIt nodes.");
+    }
+
+    return success;
 }
 
 bool Engineering_robot_Controller::disableObjectRobotCollision(const std::string& object_id, const std::vector<std::string>& robot_link_names){

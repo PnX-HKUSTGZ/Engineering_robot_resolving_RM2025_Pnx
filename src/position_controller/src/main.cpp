@@ -47,8 +47,8 @@ namespace Engineering_robot_RM2025_Pnx{
                 robot_to_base.transform.translation.x=0;
                 robot_to_base.transform.translation.y=0;
                 robot_to_base.transform.translation.z=0;
-                robot_to_base.transform.rotation.w=1;
-                robot_to_base.transform.rotation.x=0;
+                robot_to_base.transform.rotation.w=0.525322;
+                robot_to_base.transform.rotation.x=-0.8509035;
                 robot_to_base.transform.rotation.y=0;
                 robot_to_base.transform.rotation.z=0;
 
@@ -74,8 +74,8 @@ namespace Engineering_robot_RM2025_Pnx{
                 robot_to_base.transform.translation.x=0;
                 robot_to_base.transform.translation.y=0.9;
                 robot_to_base.transform.translation.z=0.3;
-                robot_to_base.transform.rotation.w=1;
-                robot_to_base.transform.rotation.x=0;
+                robot_to_base.transform.rotation.w=0.7071068;
+                robot_to_base.transform.rotation.x=-0.7071068;
                 robot_to_base.transform.rotation.y=0;
                 robot_to_base.transform.rotation.z=0;
                 tran.sendTransform(robot_to_base);
