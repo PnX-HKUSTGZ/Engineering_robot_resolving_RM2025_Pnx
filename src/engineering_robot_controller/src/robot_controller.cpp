@@ -49,20 +49,20 @@ bool Engineering_robot_Controller::MoveitInit(){
         planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
         RCLCPP_INFO(this->get_logger(),"PlanningSceneInterface initialized successfully");
         
-        // planning_scene_monitor_=std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
-        //     this->shared_from_this(),"robot_description"
-        // );
+        planning_scene_monitor_=std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
+            this->shared_from_this(),"robot_description"
+        );
 
-        // planning_scene_monitor_->startSceneMonitor();
-        // planning_scene_monitor_->startWorldGeometryMonitor();
-        // planning_scene_monitor_->startStateMonitor();
-        // RCLCPP_INFO(this->get_logger(),"planning_scene_monitor_ init finish");
+        planning_scene_monitor_->startSceneMonitor();
+        planning_scene_monitor_->startWorldGeometryMonitor();
+        planning_scene_monitor_->startStateMonitor();
+        RCLCPP_INFO(this->get_logger(),"planning_scene_monitor_ init finish");
 
         arm_model_group=move_group_->getCurrentState()->getJointModelGroup(ARM_CONTROL_GROUP);
         RCLCPP_INFO(this->get_logger(),"JointModelGroup for %s loaded successfully", ARM_CONTROL_GROUP.c_str());
         
-        visual_tools_=std::shared_ptr<moveit_visual_tools::MoveItVisualTools>(new moveit_visual_tools::MoveItVisualTools(this->shared_from_this(),"robot_base","robot",move_group_->getRobotModel()));
-        RCLCPP_INFO(this->get_logger(),"MoveItVisualTools initialized with reference frame: robot_base");
+        visual_tools_=std::shared_ptr<moveit_visual_tools::MoveItVisualTools>(new moveit_visual_tools::MoveItVisualTools(this->shared_from_this(),robot_base,"robot",move_group_->getRobotModel()));
+        RCLCPP_INFO(this->get_logger(),"MoveItVisualTools initialized with reference frame: %s",robot_base.c_str());
         
         plan_=std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan>();
         RCLCPP_INFO(this->get_logger(),"Motion plan container initialized");
@@ -77,18 +77,24 @@ bool Engineering_robot_Controller::MoveitInit(){
         RCLCPP_ERROR(this->get_logger(),"MoveitInit fail with %s",e.what());
         return 0;
     }
-    move_group_->setEndEffectorLink("J5_end");
 
-    RCLCPP_INFO(this->get_logger(),"set the endeffector link : J5_end");
+    if(move_group_->setEndEffectorLink(end_link)){
+        RCLCPP_INFO(this->get_logger(),"set the endeffector link : %s",end_link.c_str());
+    }
+    else{
+        RCLCPP_ERROR(this->get_logger(),"fail to set the endeffector link : %s",end_link.c_str());
+        return 0;
+    }
+
  
     RCLCPP_INFO(this->get_logger(),"Load Moveit2 Part ok!");
 
-    planner_trigger_=this->create_subscription<std_msgs::msg::Bool>(
-        "/engineering_robot_controller/tigger",
-        1,
-        [this](const std::shared_ptr<std_msgs::msg::Bool> msg){
-            this->planner_trigger_call_back(msg);
-        });
+    // planner_trigger_=this->create_subscription<std_msgs::msg::Bool>(
+    //     "/engineering_robot_controller/tigger",
+    //     1,
+    //     [this](const std::shared_ptr<std_msgs::msg::Bool> msg){
+    //         this->planner_trigger_call_back(msg);
+    //     });
     
     RCLCPP_INFO(this->get_logger(),"Load sub Part ok!");
 
@@ -132,6 +138,7 @@ void Engineering_robot_Controller::cancel_mine_exchange_pipe_thread_clear(){
         RedeemBox_pos_pub_timer->cancel();
         RedeemBox_pos_pub_timer=nullptr;
     }
+    RCLCPP_INFO(this->get_logger(),"RedeemBox_pos_pub_timer cancel and set to nullptr");
 }
 
 void Engineering_robot_Controller::commmand_executor(){
@@ -208,7 +215,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     while(!get_tranform){
         try{
             msg=tf2_buffer_->lookupTransform(
-                "robot_base",
+                robot_base,
                 "object/box",
                 this->now(),
                 50ms
@@ -220,7 +227,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
             get_tranform=0;
         }
     }
-    RCLCPP_INFO_STREAM(this->get_logger(),"get transform of RedeemBox and robot_base");
+    RCLCPP_INFO_STREAM(this->get_logger(),"get transform of RedeemBox and "<<robot_base);
 
     RedeemBox_pos_pub_timer=this->create_wall_timer(33ms,[this,msg](){
         geometry_msgs::msg::TransformStamped msg_=msg;
@@ -258,10 +265,10 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
 {    //第一阶段 ====================================================================
     clear_constraints_state();
-    if (!move_group_->setEndEffectorLink("J5_end")){
-        RCLCPP_ERROR(this->get_logger(),"set fail!");
-    }
-    else RCLCPP_INFO(this->get_logger(),"set the endeffector link : J5_end");
+    // if (!move_group_->setEndEffectorLink("J5_end")){
+    //     RCLCPP_ERROR(this->get_logger(),"set fail!");
+    // }
+    // else RCLCPP_INFO(this->get_logger(),"set the endeffector link : J5_end");
     computer_state.current_state=2;
     computer_state.pos1_state=PLANNING;
     set_computer_state(computer_state);
@@ -272,8 +279,8 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     geometry_msgs::msg::Point RedeemBoxstate1point;
     geometry_msgs::msg::Point transformedRedeemBoxstate1point;
     RedeemBoxstate1point.x=0;
-    RedeemBoxstate1point.y=-0.25;
-    RedeemBoxstate1point.z=0;
+    RedeemBoxstate1point.y=0;
+    RedeemBoxstate1point.z=-0.25;
     doPointTransform(RedeemBoxstate1point,transformedRedeemBoxstate1point,msg);
     RCLCPP_INFO_STREAM(this->get_logger(),"target one pose ("<<transformedRedeemBoxstate1point.x<<","<<transformedRedeemBoxstate1point.y<<","<<transformedRedeemBoxstate1point.z<<")");
 
@@ -325,7 +332,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     
     move_group_->setPoseTarget(primitive_pose);
     move_group_->setGoalOrientationTolerance(0.1);
-    move_group_->setGoalPositionTolerance(0.01);
+    move_group_->setGoalPositionTolerance(0.1);
     move_group_->setPlanningTime(10);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
@@ -706,8 +713,8 @@ bool Engineering_robot_Controller::LoadAttachMine(){
     geometry_msgs::msg::Pose object_pose_relative_to_tf;
 
     object_pose_relative_to_tf.position.x = -0.1;
-    object_pose_relative_to_tf.position.y = 0.00;
-    object_pose_relative_to_tf.position.z = -0.1;
+    object_pose_relative_to_tf.position.y = -0.1;
+    object_pose_relative_to_tf.position.z = 0.0;
     object_pose_relative_to_tf.orientation.x = 0;
     object_pose_relative_to_tf.orientation.y = 0.0;
     object_pose_relative_to_tf.orientation.z = 0.0;
@@ -790,12 +797,12 @@ bool Engineering_robot_Controller::LoadRedeemBox(){
     geometry_msgs::msg::Pose object_pose_relative_to_tf;
 
     object_pose_relative_to_tf.position.x = -0.144;
-    object_pose_relative_to_tf.position.y = 0;
-    object_pose_relative_to_tf.position.z = 0.144;
-    object_pose_relative_to_tf.orientation.x = -0.7071068;
+    object_pose_relative_to_tf.position.y = -0.144;
+    object_pose_relative_to_tf.position.z = 0;
+    object_pose_relative_to_tf.orientation.x = 0;
     object_pose_relative_to_tf.orientation.y = 0.0;
     object_pose_relative_to_tf.orientation.z = 0.0;
-    object_pose_relative_to_tf.orientation.w = 0.7071068;
+    object_pose_relative_to_tf.orientation.w = 1;
 
     collision_object.meshes.push_back(mesh_msg);
     collision_object.mesh_poses.push_back(object_pose_relative_to_tf);
@@ -879,39 +886,39 @@ bool Engineering_robot_Controller::disableObjectRobotCollision(const std::string
 }
 
 
-void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg){
+// void Engineering_robot_Controller::planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg){
 
-    RCLCPP_INFO(this->get_logger(),"planner_trigger_call_back called");
+//     RCLCPP_INFO(this->get_logger(),"planner_trigger_call_back called");
 
-    geometry_msgs::msg::TransformStamped box_pos;
+//     geometry_msgs::msg::TransformStamped box_pos;
 
-    try{
-        box_pos=tf2_buffer_->lookupTransform(
-            "object/box",
-            "robot_base",
-            this->now(),
-            20ms);
-    }
-    catch(const std::exception& e){
-        RCLCPP_WARN(this->get_logger(),"lookupTransform fail with %s",e.what());
-        return;
-    }
+//     try{
+//         box_pos=tf2_buffer_->lookupTransform(
+//             "object/box",
+//             "robot_base",
+//             this->now(),
+//             20ms);
+//     }
+//     catch(const std::exception& e){
+//         RCLCPP_WARN(this->get_logger(),"lookupTransform fail with %s",e.what());
+//         return;
+//     }
 
-    auto robot_state_=move_group_->getCurrentState();
-    const auto names= robot_state_->getVariableNames();
-    std::vector<double> vals;
-    robot_state_->copyJointGroupPositions(arm_model_group,vals);
+//     auto robot_state_=move_group_->getCurrentState();
+//     const auto names= robot_state_->getVariableNames();
+//     std::vector<double> vals;
+//     robot_state_->copyJointGroupPositions(arm_model_group,vals);
 
-    RCLCPP_INFO_STREAM(this->get_logger(), "Reference frame: " << move_group_->getPoseReferenceFrame());
-    vals[0]=-vals[0];
+//     RCLCPP_INFO_STREAM(this->get_logger(), "Reference frame: " << move_group_->getPoseReferenceFrame());
+//     vals[0]=-vals[0];
 
-    geometry_msgs::msg::Pose target;
+//     geometry_msgs::msg::Pose target;
 
-    target.position.x=box_pos.transform.translation.x;
-    target.position.y=box_pos.transform.translation.y;
-    target.position.z=box_pos.transform.translation.z;
+//     target.position.x=box_pos.transform.translation.x;
+//     target.position.y=box_pos.transform.translation.y;
+//     target.position.z=box_pos.transform.translation.z;
 
 
-}
+// }
 
 } // namespace Engineering_robot_RM2025_Pnx

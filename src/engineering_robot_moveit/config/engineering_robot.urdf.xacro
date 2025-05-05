@@ -9,6 +9,6 @@
     <xacro:include filename="engineering_robot.ros2_control.xacro" />
 
 
-    <xacro:engineering_robot_ros2_control name="Realsystem" initial_positions_file="$(arg initial_positions_file)"/>
+    <xacro:engineering_robot_ros2_control name="Realsysystem" initial_positions_file="$(arg initial_positions_file)"/>
 
 </robot>

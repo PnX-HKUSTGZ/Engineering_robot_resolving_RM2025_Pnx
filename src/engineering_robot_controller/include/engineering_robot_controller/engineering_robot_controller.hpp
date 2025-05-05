@@ -125,14 +125,14 @@ const moveit::core::JointModelGroup* arm_model_group;
 std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan> plan_;
 
-rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr planner_trigger_;
+// rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr planner_trigger_;
 
 tf2_ros::Buffer::SharedPtr tf2_buffer_;
 std::shared_ptr<tf2_ros::TransformListener> tf2_listenser_;
 std::unique_ptr<tf2_ros::TransformBroadcaster> tf2_pub_;
 
 //receive a sign and control the arm move to target
-void planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg);
+// void planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg);
 
 // state_controll
 
@@ -150,6 +150,8 @@ void cancel_mine_exchange_pipe_thread_clear();
 std::string MineMesh="package://engineering_robot_controller/meshes/Mine.STL";
 std::string RedeemBoxMesh="package://engineering_robot_controller/meshes/RedeemBox.STL";
 std::string RedeemBoxFram="object/fixedbox";
+std::string robot_base="robot_base_link";
+std::string end_link="end_link";
 
 // exchange_state_controller
 

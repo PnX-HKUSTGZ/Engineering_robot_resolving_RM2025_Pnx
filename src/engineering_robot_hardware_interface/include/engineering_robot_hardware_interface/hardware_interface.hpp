@@ -73,7 +73,7 @@ rclcpp::Logger logger=rclcpp::get_logger("RHardwareInterface");
 std::unique_ptr<IoContext> owned_ctx_;
 std::string device_name_="/dev/ttyACM0";
 // 顺序和串口包的顺序一样
-std::vector<std::string> joint_name={"J1_pris_","J1_rotate_","J2_","J3_","J4_x_","J4_y_"};
+std::vector<std::string> joint_name={"J1J","J2J","J3J","J4J","J5_xJ","J5_zJ"};
 std::vector<std::string> interface_name={"position","velocity"};
 std::unique_ptr<drivers::serial_driver::SerialPortConfig> device_config_;
 std::unique_ptr<drivers::serial_driver::SerialDriver> serial_driver_;

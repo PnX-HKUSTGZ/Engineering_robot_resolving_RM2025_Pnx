@@ -169,7 +169,7 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
         }
         state_data[0]=-state_data[0];
         v[0]=-v[0];
-        state_data[4]+=1.5707963267948966192313215;
+        // state_data[4]+=1.5707963267948966192313215;
 
         PlayerCommandContent nowcommand;
         nowcommand.breakout=packet.breakout;
@@ -212,7 +212,7 @@ return_type ERHardwareInterface::write(const rclcpp::Time & time, const rclcpp::
         packet.posv[i][1]=WID_v[i];
         // RCLCPP_INFO_STREAM(logger,"add "<<WID_p[i]<<","<<WID_v[i]);
     }
-    packet.posv[4][0]-=1.57079632679496619;
+    // packet.posv[4][0]-=1.57079632679496619;
     packet.posv[0][0]=-packet.posv[0][0];
     packet.posv[0][1]=-packet.posv[0][1];
     uint16_t crc16 = Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), 53, 0xFFFF);
