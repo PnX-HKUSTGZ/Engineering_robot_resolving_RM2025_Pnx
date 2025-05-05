@@ -72,12 +72,12 @@ namespace Engineering_robot_RM2025_Pnx{
                 robot_to_base.header.frame_id="map";
                 robot_to_base.child_frame_id=RedeemBox_frame;
                 robot_to_base.transform.translation.x=0;
-                robot_to_base.transform.translation.y=0.9;
-                robot_to_base.transform.translation.z=0.3;
-                robot_to_base.transform.rotation.w=0.7071068;
-                robot_to_base.transform.rotation.x=-0.7071068;
-                robot_to_base.transform.rotation.y=0;
-                robot_to_base.transform.rotation.z=0;
+                robot_to_base.transform.translation.y=0.75;
+                robot_to_base.transform.translation.z=0.4;
+                robot_to_base.transform.rotation.w=0.3826834 ;
+                robot_to_base.transform.rotation.x=-0.6159197;
+                robot_to_base.transform.rotation.y=0.3079598;
+                robot_to_base.transform.rotation.z=-0.6159197;
                 tran.sendTransform(robot_to_base);
                 k++;
                 RCLCPP_INFO(this->get_logger(),"virtual_box_position pub");

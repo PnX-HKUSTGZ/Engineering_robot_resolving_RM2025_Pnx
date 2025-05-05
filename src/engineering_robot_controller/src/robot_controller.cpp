@@ -154,6 +154,14 @@ void Engineering_robot_Controller::commmand_executor(){
             continue;
         }
 
+        auto computer_state=get_computer_state();
+        computer_state.current_state=1;
+        computer_state.recognition=REC_ING;
+        computer_state.pos1_state=0;
+        computer_state.pos2_state=0;
+        computer_state.pos3_state=0;
+        set_computer_state(computer_state);
+
         RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe start!");
 
         std::thread mine_exchange_pipe_thread([this](){
@@ -187,7 +195,6 @@ void Engineering_robot_Controller::commmand_executor(){
             }
         }
         
-        auto computer_state=get_computer_state();
         computer_state.current_state=0;
         computer_state.recognition=0;
         computer_state.pos1_state=0;
@@ -370,8 +377,15 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     try{
         RCLCPP_INFO(this->get_logger(),"state one executing.....");
+        move_group_->setMaxAccelerationScalingFactor(1);
         auto execute_res=move_group_->execute(plan);
-        if(execute_res!=moveit::core::MoveItErrorCode::SUCCESS){
+        if(execute_res==moveit::core::MoveItErrorCode::SUCCESS){
+            RCLCPP_INFO(this->get_logger(),"execute finish!");
+        }
+        else if(execute_res==moveit::core::MoveItErrorCode::TIMED_OUT){
+            RCLCPP_WARN(this->get_logger(),"execute time out");
+        }
+        else{
             return;
         }
     }
@@ -471,12 +485,15 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     primitive.dimensions[1] = 0.005; // Tolerance in y
     primitive.dimensions[2] = 0.005; // Tolerance in z  
 
-    // moveit_msgs::msg:: ocon;
-    // pcon.header.frame_id=reference_frame;
-    // pcon.header.stamp=this->now();
-    // pcon.link_name=ee_link;
-    // pcon.weight=1;
-    // pcon.
+    moveit_msgs::msg::OrientationConstraint ocon;
+    ocon.header.frame_id=reference_frame;
+    ocon.header.stamp=this->now();
+    ocon.link_name=ee_link;
+    ocon.weight=1;
+    ocon.orientation=current_pose_stamped.pose.orientation;
+    ocon.absolute_x_axis_tolerance=0.1;
+    ocon.absolute_y_axis_tolerance=0.1;
+    ocon.absolute_z_axis_tolerance=0.1;
 
     geometry_msgs::msg::Pose primitive_pose;
     // Set the target position (example values - replace with your desired position)
@@ -492,7 +509,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     moveit_msgs::msg::RobotTrajectory trajectory;
     const double jump_threshold = 0.0;
-    const double eef_step = 0.01;
+    const double eef_step = 0.005;
     double fraction = move_group_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
 
     if (fraction >= 0.9){
@@ -514,20 +531,22 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     // ocon.orientation=current_pose_stamped.pose.orientation;
 
-    // state2_constraints.orientation_constraints.push_back(ocon);
+    state2_constraints.orientation_constraints.push_back(ocon);
 
     // RCLCPP_INFO_STREAM(this->get_logger(),"target two pose ("<<transformedRedeemBoxstate2point.x<<","<<transformedRedeemBoxstate2point.y<<","<<transformedRedeemBoxstate2point.z<<")");
 
-    // move_group_->setPathConstraints(state2_constraints);
+    move_group_->setPathConstraints(state2_constraints);
     // move_group_->setGoalTolerance()
     move_group_->setPoseTarget(primitive_pose);
-    move_group_->setGoalOrientationTolerance(0.1);
+    move_group_->setGoalOrientationTolerance(0.5);
     move_group_->setGoalPositionTolerance(0.01);
     move_group_->setPlanningTime(10);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
-
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+
+    // bool success=1;
+    // plan.trajectory_=trajectory;
 
     if(success){
         computer_state.current_state=4;
@@ -546,7 +565,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     try{
         RCLCPP_INFO(this->get_logger(),"state two executing.....");
         auto execute_res=move_group_->execute(plan);
-        if(execute_res!=moveit::core::MoveItErrorCode::SUCCESS){
+        if(execute_res!=moveit::core::MoveItErrorCode::SUCCESS&&execute_res!=moveit::core::MoveItErrorCode::TIMED_OUT){
             return;
         }
     }
