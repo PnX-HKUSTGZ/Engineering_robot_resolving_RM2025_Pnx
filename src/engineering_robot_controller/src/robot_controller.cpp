@@ -49,6 +49,15 @@ bool Engineering_robot_Controller::MoveitInit(){
         planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
         RCLCPP_INFO(this->get_logger(),"PlanningSceneInterface initialized successfully");
         
+        // planning_scene_monitor_=std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
+        //     this->shared_from_this(),"robot_description"
+        // );
+
+        // planning_scene_monitor_->startSceneMonitor();
+        // planning_scene_monitor_->startWorldGeometryMonitor();
+        // planning_scene_monitor_->startStateMonitor();
+        // RCLCPP_INFO(this->get_logger(),"planning_scene_monitor_ init finish");
+
         arm_model_group=move_group_->getCurrentState()->getJointModelGroup(ARM_CONTROL_GROUP);
         RCLCPP_INFO(this->get_logger(),"JointModelGroup for %s loaded successfully", ARM_CONTROL_GROUP.c_str());
         
@@ -112,6 +121,13 @@ void Engineering_robot_Controller::clear_constraints_state(){
 
 void Engineering_robot_Controller::cancel_mine_exchange_pipe_thread_clear(){
     RemoveRedeemBox();
+    try{
+        move_group_->detachObject("Mine");
+    }
+    catch(const std::exception & e){
+        RCLCPP_ERROR(this->get_logger(),"Detach Mine error with %s",e.what());
+    }
+    RemoveObject("Mine");
     if(RedeemBox_pos_pub_timer!=nullptr){
         RedeemBox_pos_pub_timer->cancel();
         RedeemBox_pos_pub_timer=nullptr;
@@ -135,16 +151,9 @@ void Engineering_robot_Controller::commmand_executor(){
 
         std::thread mine_exchange_pipe_thread([this](){
             mine_exchange_pipe_state=0;
-            if(RedeemBox_pos_pub_timer!=nullptr){
-                RedeemBox_pos_pub_timer->cancel();
-                RedeemBox_pos_pub_timer=nullptr;
-            }
+            cancel_mine_exchange_pipe_thread_clear();
             this->mine_exchange_pipe();
-            RemoveRedeemBox();
-            if(RedeemBox_pos_pub_timer!=nullptr){
-                RedeemBox_pos_pub_timer->cancel();
-                RedeemBox_pos_pub_timer=nullptr;
-            }
+            cancel_mine_exchange_pipe_thread_clear();
             mine_exchange_pipe_state=1;
         });
 
@@ -159,6 +168,7 @@ void Engineering_robot_Controller::commmand_executor(){
                 RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe stop by player");
                 RCLCPP_INFO(this->get_logger(),"try to stop mine_exchange_pipe");
                 pthread_cancel(mine_exchange_pipe_thread.native_handle());
+                cancel_mine_exchange_pipe_thread_clear();
                 mine_exchange_pipe_thread.join();
                 RCLCPP_INFO(this->get_logger(),"stop mine_exchange_pipe!");
                 break;
@@ -221,7 +231,15 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     RCLCPP_INFO(this->get_logger(),"create RedeemBox_pos_pub_timer!");
 
     bool LoadRedeemBoxcheck=LoadRedeemBox();
-    if(!LoadRedeemBoxcheck) return;
+    if(!LoadRedeemBoxcheck){
+        RCLCPP_ERROR(this->get_logger(),"LoadRedeemBox failed! pipe end!");
+        return;
+    }
+    bool LoadAttachMineCheck=LoadAttachMine();
+    if(!LoadAttachMineCheck){
+        RCLCPP_ERROR(this->get_logger(),"LoadAttachMine failed! pipe end!");
+        return;
+    }
 
     //tf2 初始化完成==============================================================
     computer_state.current_state=1;
@@ -588,15 +606,22 @@ void Engineering_robot_Controller::set_computer_state(const ComputerState & inpu
 }
 
 bool Engineering_robot_Controller::RemoveRedeemBox(){
-    RCLCPP_INFO(this->get_logger(),"Attempting to remove collision object 'RedeemBox' from planning scene.");
+    return RemoveObject("RedeemBox");
+}
 
-    if(!IsObjectInScene("RedeemBox")){
-        RCLCPP_INFO(this->get_logger(),"collision object 'RedeemBox' doesn't exist");
+bool Engineering_robot_Controller::RemoveObject(const std::string & name){
+    RCLCPP_INFO(this->get_logger(),"Attempting to remove collision object '%s' from planning scene.",name.c_str());
+
+    if(!IsObjectInScene(name)){
+        RCLCPP_INFO(this->get_logger(),"collision object '%s' doesn't exist",name.c_str());
         return 1;
+    }
+    else{
+        RCLCPP_INFO(this->get_logger(),"collision object '%s' exist, remove!",name.c_str());
     }
 
     std::vector<std::string> object_id;
-    object_id.push_back("RedeemBox");
+    object_id.push_back(name);
 
     planning_scene_interface_->removeCollisionObjects(object_id);
 
@@ -604,23 +629,23 @@ bool Engineering_robot_Controller::RemoveRedeemBox(){
 
     bool ok=0;
     int attempt_time=0;
-    while((ok=IsObjectInScene("RedeemBox"))){
-        RCLCPP_INFO(this->get_logger(),"waiting remove RedeemBox...");
+    while((ok=IsObjectInScene(name))){
+        RCLCPP_INFO(this->get_logger(),"waiting remove %s...",name.c_str());
         attempt_time++;
         std::this_thread::sleep_for(20ms);
         if(attempt_time>=50) break;
     }
 
     if(ok){
-        RCLCPP_ERROR(this->get_logger(),"remove RedeemBox time out");
+        RCLCPP_ERROR(this->get_logger(),"remove %s time out",name.c_str());
         return 0;
     }
     else{
-        RCLCPP_INFO(this->get_logger(),"remove RedeemBox ok!");
+        RCLCPP_INFO(this->get_logger(),"remove %s ok!",name.c_str());
         return 1;
     }
-
 }
+
 
 bool Engineering_robot_Controller::IsObjectInScene(const std::string& object_id) {
     // 检查 planning_scene_interface_ 是否已初始化
@@ -647,6 +672,92 @@ bool Engineering_robot_Controller::IsObjectInScene(const std::string& object_id)
     }
 
     return found;
+}
+
+bool Engineering_robot_Controller::LoadAttachMine(){
+
+    moveit_msgs::msg::CollisionObject collision_object;
+    collision_object.header.stamp=this->now();
+    collision_object.header.frame_id=move_group_->getEndEffectorLink();
+    collision_object.id="Mine";
+
+    RCLCPP_INFO_STREAM(this->get_logger(),"load Mine as id: "<<collision_object.id<<", attach to "<<collision_object.header.frame_id);
+
+    std::shared_ptr<shapes::Mesh> mesh_(shapes::createMeshFromResource(MineMesh));
+
+    if(!mesh_){
+        RCLCPP_ERROR(this->get_logger(), "Failed to load mesh from: %s at first step", MineMesh.c_str());
+        RCLCPP_ERROR(this->get_logger(), "Object 'Mine' will NOT be added to the scene.");
+        return 0;
+    }
+
+    shape_msgs::msg::Mesh mesh_msg;
+    shapes::ShapeMsg mesh_msg_base;
+
+    shapes::constructMsgFromShape(mesh_.get(), mesh_msg_base);
+    mesh_msg = boost::get<shape_msgs::msg::Mesh>(mesh_msg_base);
+
+    if (mesh_msg.vertices.empty()){
+        RCLCPP_ERROR(this->get_logger(), "Failed to load mesh from: %s at second step", RedeemBoxMesh.c_str());
+        RCLCPP_ERROR(this->get_logger(), "Object 'Mine' will NOT be added to the scene.");
+        return 0;
+    }
+
+    geometry_msgs::msg::Pose object_pose_relative_to_tf;
+
+    object_pose_relative_to_tf.position.x = -0.1;
+    object_pose_relative_to_tf.position.y = 0.00;
+    object_pose_relative_to_tf.position.z = -0.1;
+    object_pose_relative_to_tf.orientation.x = 0;
+    object_pose_relative_to_tf.orientation.y = 0.0;
+    object_pose_relative_to_tf.orientation.z = 0.0;
+    object_pose_relative_to_tf.orientation.w = 1;
+
+    collision_object.meshes.push_back(mesh_msg);
+    collision_object.mesh_poses.push_back(object_pose_relative_to_tf);
+    collision_object.operation = moveit_msgs::msg::CollisionObject::ADD;
+
+    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+    collision_objects.push_back(collision_object);
+
+    planning_scene_interface_->addCollisionObjects(collision_objects);
+
+    bool ok=0;
+    int attempt_time=0;
+    while(!(ok=IsObjectInScene("Mine"))){
+        RCLCPP_INFO(this->get_logger(),"waiting load Mine...");
+        attempt_time++;
+        std::this_thread::sleep_for(20ms);
+        if(attempt_time>=50) break;
+    }
+    if(!ok){
+        RCLCPP_ERROR(this->get_logger(),"load Mine time out");
+        return 0;
+    }
+    else{
+        RCLCPP_INFO(this->get_logger(),"load Mine ok!");
+    }
+
+    bool disablecheck=disableObjectRobotCollision(collision_object.id,collision_object.header.frame_id);
+    if(disablecheck){
+        RCLCPP_INFO(this->get_logger(), "disableObjectRobotCollision %s , %s ok!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
+    }
+    else{
+        RCLCPP_ERROR(this->get_logger(), "disableObjectRobotCollision %s , %s failed!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
+        return 0; 
+    }
+
+    bool attachObjectCheck=move_group_->attachObject(collision_object.id,collision_object.header.frame_id);
+    if(attachObjectCheck){
+        RCLCPP_INFO(this->get_logger(), "attachObject %s , %s ok!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
+    }
+    else{
+        RCLCPP_ERROR(this->get_logger(), "attachObjectCheck %s , %s failed!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
+        return 0; 
+    }
+
+    return 1;
+
 }
 
 bool Engineering_robot_Controller::LoadRedeemBox(){
@@ -727,6 +838,44 @@ bool Engineering_robot_Controller::LoadRedeemBox(){
 
     return 1;
 
+}
+
+bool Engineering_robot_Controller::disableObjectRobotCollision(const std::string& object_id, const std::string robot_link_name){
+    return disableObjectRobotCollision(object_id,std::vector<std::string>{robot_link_name});
+}
+
+bool Engineering_robot_Controller::disableObjectRobotCollision(const std::string& object_id, const std::vector<std::string>& robot_link_names){
+//     // Get the planning scene. Lock required if using a monitor.
+//     planning_scene_monitor_->requestPlanningSceneState(); // Update scene from ROS
+//     planning_scene::PlanningScenePtr planning_scene = planning_scene_monitor_->getPlanningScene();
+
+//     if (!planning_scene){
+//         RCLCPP_ERROR(this->get_logger(), "Failed to get planning scene.");
+//         return 0;
+//     }
+// {// lock PlanningScene
+//     // RW : read and write
+//     planning_scene_monitor::LockedPlanningSceneRW ps(planning_scene_monitor_);
+
+//     // Get the non-const AllowedCollisionMatrix
+//     collision_detection::AllowedCollisionMatrix& acm = ps->getAllowedCollisionMatrixNonConst();
+
+//     // Disable collision for each specified robot link with the object
+//     for (const std::string& link_name : robot_link_names){
+//         // Check if the link exists in the robot model (optional but good practice)
+//         if (ps->getRobotModel()->hasLinkModel(link_name)){
+//             RCLCPP_INFO(this->get_logger(), "Allowing collision between '%s' and '%s'", link_name.c_str(), object_id.c_str());
+//             // Set the entry in the ACM to true (allow collision)
+//             acm.setEntry(link_name, object_id, true);
+//         }
+//         else{
+//             RCLCPP_WARN(this->get_logger(), "Robot link '%s' not found.", link_name.c_str());
+//         }
+//     }
+// }
+    return 1;
+//     // planning_scene_monitor_->publishCurrentPlanningScene(); // Or planning_scene->publishPlanningSceneMsg()
+    // planning_scene_interface_->applyPlanningScene
 }
 
 

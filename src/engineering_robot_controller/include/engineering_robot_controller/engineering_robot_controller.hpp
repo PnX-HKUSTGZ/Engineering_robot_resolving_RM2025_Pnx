@@ -120,6 +120,7 @@ std::string END_EFFECTOR_CONTROL_GROUP;
 
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
 std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
+planning_scene_monitor::PlanningSceneMonitorPtr planning_scene_monitor_;
 const moveit::core::JointModelGroup* arm_model_group;
 std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan> plan_;
@@ -136,11 +137,13 @@ void planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg);
 // state_controll
 
 // load RedeemBox and mine
-bool LoadMine();
-bool RemoveMine();
+bool LoadAttachMine();
 bool LoadRedeemBox();
 bool RemoveRedeemBox();
 
+bool RemoveObject(const std::string & name);
+bool disableObjectRobotCollision(const std::string& object_id, const std::vector<std::string>& robot_link_names);
+bool disableObjectRobotCollision(const std::string& object_id, const std::string robot_link_name);
 bool IsObjectInScene(const std::string& object_id);
 void cancel_mine_exchange_pipe_thread_clear();
 
