@@ -85,13 +85,6 @@ bool Engineering_robot_Controller::MoveitInit(){
 
     RCLCPP_INFO_STREAM(this->get_logger(), "Reference frame: " << move_group_->getPoseReferenceFrame());
 
-    bool LoadRedeemBoxcheck=LoadRedeemBox();
-    if(!LoadRedeemBoxcheck){
-        RCLCPP_ERROR(this->get_logger(),"LoadRedeemBoxcheck failed");
-        return 0;
-    }
-    else RCLCPP_INFO(this->get_logger(),"LoadRedeemBox ok!");
-
     player_command_sub_=this->create_subscription<command_interfaces::msg::PlayerCommand>("/player_command",1,[this](const command_interfaces::msg::PlayerCommand::ConstSharedPtr & msg){
         player_command_sub_callback(msg);
     });
@@ -117,6 +110,13 @@ void Engineering_robot_Controller::clear_constraints_state(){
     move_group_->clearTrajectoryConstraints();
 }
 
+void Engineering_robot_Controller::cancel_mine_exchange_pipe_thread_clear(){
+    RemoveRedeemBox();
+    if(RedeemBox_pos_pub_timer!=nullptr){
+        RedeemBox_pos_pub_timer->cancel();
+        RedeemBox_pos_pub_timer=nullptr;
+    }
+}
 
 void Engineering_robot_Controller::commmand_executor(){
     while(1){
@@ -135,7 +135,16 @@ void Engineering_robot_Controller::commmand_executor(){
 
         std::thread mine_exchange_pipe_thread([this](){
             mine_exchange_pipe_state=0;
+            if(RedeemBox_pos_pub_timer!=nullptr){
+                RedeemBox_pos_pub_timer->cancel();
+                RedeemBox_pos_pub_timer=nullptr;
+            }
             this->mine_exchange_pipe();
+            RemoveRedeemBox();
+            if(RedeemBox_pos_pub_timer!=nullptr){
+                RedeemBox_pos_pub_timer->cancel();
+                RedeemBox_pos_pub_timer=nullptr;
+            }
             mine_exchange_pipe_state=1;
         });
 
@@ -203,12 +212,16 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     }
     RCLCPP_INFO_STREAM(this->get_logger(),"get transform of RedeemBox and robot_base");
 
-    auto RedeemBox_pos_pub_timer=this->create_wall_timer(33ms,[this,msg](){
+    RedeemBox_pos_pub_timer=this->create_wall_timer(33ms,[this,msg](){
         geometry_msgs::msg::TransformStamped msg_=msg;
         msg_.child_frame_id="object/fixedbox";
         msg_.header.stamp=this->now();
         this->tf2_pub_->sendTransform(msg_);
     });
+    RCLCPP_INFO(this->get_logger(),"create RedeemBox_pos_pub_timer!");
+
+    bool LoadRedeemBoxcheck=LoadRedeemBox();
+    if(!LoadRedeemBoxcheck) return;
 
     //tf2 初始化完成==============================================================
     computer_state.current_state=1;
@@ -289,14 +302,15 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     state1_constraints.orientation_constraints.push_back(ocon);
 
+
     // move_group_->setPathConstraints(state1_constraints);
-    // move_group_->setGoalTolerance()
+    
     move_group_->setPoseTarget(primitive_pose);
     move_group_->setGoalOrientationTolerance(0.1);
     move_group_->setGoalPositionTolerance(0.01);
     move_group_->setPlanningTime(10);
-    move_group_->setMaxVelocityScalingFactor(1.5);
-    move_group_->setMaxAccelerationScalingFactor(1.5);
+    move_group_->setMaxVelocityScalingFactor(1);
+    move_group_->setMaxAccelerationScalingFactor(1);
 
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
@@ -405,7 +419,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     primitive_pose.position.y = transformedRedeemBoxstate2point.y;
     primitive_pose.position.z = transformedRedeemBoxstate2point.z;
     // Orientation is usually identity for a box center
-    primitive_pose.orientation=msg.transform.rotation;
+    primitive_pose.orientation=current_pose_stamped.pose.orientation;
 
     pcon.constraint_region.primitives.push_back(primitive);
     pcon.constraint_region.primitive_poses.push_back(primitive_pose);
@@ -426,8 +440,8 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     // move_group_->setPathConstraints(state2_constraints);
     // move_group_->setGoalTolerance()
     move_group_->setPoseTarget(primitive_pose);
-    move_group_->setGoalOrientationTolerance(0.5);
-    move_group_->setGoalPositionTolerance(0.1);
+    move_group_->setGoalOrientationTolerance(0.05);
+    move_group_->setGoalPositionTolerance(0.01);
     move_group_->setPlanningTime(10);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
@@ -573,6 +587,68 @@ void Engineering_robot_Controller::set_computer_state(const ComputerState & inpu
     computer_state=input_state;
 }
 
+bool Engineering_robot_Controller::RemoveRedeemBox(){
+    RCLCPP_INFO(this->get_logger(),"Attempting to remove collision object 'RedeemBox' from planning scene.");
+
+    if(!IsObjectInScene("RedeemBox")){
+        RCLCPP_INFO(this->get_logger(),"collision object 'RedeemBox' doesn't exist");
+        return 1;
+    }
+
+    std::vector<std::string> object_id;
+    object_id.push_back("RedeemBox");
+
+    planning_scene_interface_->removeCollisionObjects(object_id);
+
+    RCLCPP_INFO(this->get_logger(),"Send remove request ok! waiting to check ok");
+
+    bool ok=0;
+    int attempt_time=0;
+    while((ok=IsObjectInScene("RedeemBox"))){
+        RCLCPP_INFO(this->get_logger(),"waiting remove RedeemBox...");
+        attempt_time++;
+        std::this_thread::sleep_for(20ms);
+        if(attempt_time>=50) break;
+    }
+
+    if(ok){
+        RCLCPP_ERROR(this->get_logger(),"remove RedeemBox time out");
+        return 0;
+    }
+    else{
+        RCLCPP_INFO(this->get_logger(),"remove RedeemBox ok!");
+        return 1;
+    }
+
+}
+
+bool Engineering_robot_Controller::IsObjectInScene(const std::string& object_id) {
+    // 检查 planning_scene_interface_ 是否已初始化
+    if (!planning_scene_interface_) {
+        RCLCPP_ERROR(this->get_logger(), "PlanningSceneInterface is not initialized. Cannot check for object.");
+        return false;
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Checking if object '%s' is in the planning scene...", object_id.c_str());
+
+    // 1. 获取规划场景中所有已知碰撞体的ID列表
+    std::vector<std::string> object_ids = planning_scene_interface_->getKnownObjectNames();
+
+    // 2. 在获取的ID列表中查找目标对象的ID
+    auto it = std::find(object_ids.begin(), object_ids.end(), object_id);
+
+    // 3. 判断是否找到
+    bool found = (it != object_ids.end());
+
+    if (found) {
+        RCLCPP_INFO(this->get_logger(), "Object '%s' found in the planning scene.", object_id.c_str());
+    } else {
+        RCLCPP_WARN(this->get_logger(), "Object '%s' NOT found in the planning scene.", object_id.c_str());
+    }
+
+    return found;
+}
+
 bool Engineering_robot_Controller::LoadRedeemBox(){
 
     moveit_msgs::msg::CollisionObject collision_object;
@@ -632,8 +708,22 @@ bool Engineering_robot_Controller::LoadRedeemBox(){
     planning_scene_interface_->addCollisionObjects(collision_objects);
     planning_scene_interface_->applyPlanningScene(planning_scene);
 
-    RCLCPP_INFO(this->get_logger(), "Collision object 'RedeemBox' added to the planning scene attached to frame '%s'.",
-        RedeemBoxFram.c_str());
+    bool ok=0;
+    int attempt_time=0;
+    while(!(ok=IsObjectInScene("RedeemBox"))){
+        RCLCPP_INFO(this->get_logger(),"waiting load RedeemBox...");
+        attempt_time++;
+        std::this_thread::sleep_for(20ms);
+        if(attempt_time>=50) break;
+    }
+    if(!ok){
+        RCLCPP_ERROR(this->get_logger(),"load RedeemBox time out");
+        return 0;
+    }
+    else{
+        RCLCPP_INFO(this->get_logger(),"load RedeemBox ok!");
+        return 1;
+    }
 
     return 1;
 

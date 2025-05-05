@@ -1,94 +1,156 @@
-#include <rclcpp/rclcpp.hpp>
-#include <geometry_msgs/msg/transform_stamped.hpp>
-#include <geometry_msgs/msg/point_stamped.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp> // Includes doTransform for geometry_msgs
-#include <tf2/LinearMath/Quaternion.h> // For creating quaternions
+#include <ros/ros.h>
+#include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
 
-class TransformPointExample : public rclcpp::Node
+#include <moveit_msgs/DisplayTrajectory.h>
+#include <moveit_msgs/PlanningScene.h>
+#include <moveit_msgs/AttachedCollisionObject.h>
+#include <moveit_msgs/CollisionObject.h>
+#include <moveit_msgs/Constraints.h>
+#include <moveit_msgs/PositionConstraint.h>
+#include <moveit_msgs/OrientationConstraint.h>
+#include <geometry_msgs/Point.h>
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/SolidPrimitive.h>
+
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h> // For tf2::createQuaternionMsgFromRollPitchYaw
+
+#include <cmath> // For M_PI
+
+int main(int argc, char** argv)
 {
-public:
-  TransformPointExample()
-  : Node("transform_point_example")
-  {
-    RCLCPP_INFO(this->get_logger(), "Starting Transform Point Example Node");
+  ros::init(argc, argv, "constrained_planning_node");
+  ros::NodeHandle nh;
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
 
-    // --- 1. Create a sample TransformStamped message ---
-    // This transform will move +1 unit along the X axis
-    // and rotate 90 degrees around the Z axis (from 'base_link' to 'tool0')
-    geometry_msgs::msg::TransformStamped sample_transform;
-    sample_transform.header.stamp = this->get_clock()->now();
-    sample_transform.header.frame_id = "base_link"; // Source frame
-    sample_transform.child_frame_id = "tool0";      // Target frame
+  ROS_INFO("Starting MoveIt constrained planning example...");
 
-    // Translation: move 1 meter in X
-    sample_transform.transform.translation.x = 1.0;
-    sample_transform.transform.translation.y = 0.0;
-    sample_transform.transform.translation.z = 0.0;
+  // Set up MoveGroupInterface
+  // Replace "your_robot_planning_group" with your robot's planning group name
+  static const std::string PLANNING_GROUP = "your_robot_planning_group";
+  moveit::planning_interface::MoveGroupInterface move_group_interface(PLANNING_GROUP);
 
-    // Rotation: 90 degrees around Z (using quaternion)
-    tf2::Quaternion q;
-    q.setRPY(0, 0, M_PI / 2.0); // Roll, Pitch, Yaw (radians) -> 90 deg around Z
-    sample_transform.transform.rotation.x = q.x();
-    sample_transform.transform.rotation.y = q.y();
-    sample_transform.transform.rotation.z = q.z();
-    sample_transform.transform.rotation.w = q.w();
+  // Get planning frame and end effector link
+  const std::string planning_frame = move_group_interface.getPlanningFrame();
+  const std::string eef_link = move_group_interface.getEndEffectorLink();
+  ROS_INFO_STREAM("Planning frame: " << planning_frame);
+  ROS_INFO_STREAM("End effector link: " << eef_link);
 
-    RCLCPP_INFO(this->get_logger(), "Sample Transform:");
-    RCLCPP_INFO(this->get_logger(), "  From: %s To: %s",
-      sample_transform.header.frame_id.c_str(), sample_transform.child_frame_id.c_str());
-    RCLCPP_INFO(this->get_logger(), "  Translation: (%f, %f, %f)",
-      sample_transform.transform.translation.x, sample_transform.transform.translation.y, sample_transform.transform.translation.z);
-    RCLCPP_INFO(this->get_logger(), "  Rotation (Quaternion): (%f, %f, %f, %f)",
-      sample_transform.transform.rotation.x, sample_transform.transform.rotation.y,
-      sample_transform.transform.rotation.z, sample_transform.transform.rotation.w);
+  // Allow replanning to increase the chances of finding a path
+  move_group_interface.allowReplanning(true);
+  // Set a high number of planning attempts
+  move_group_interface.setNumPlanningAttempts(10);
+  // Set planning time
+  move_group_interface.setPlanningTime(5.0); // Give it more time with constraints
+
+  // 1. Create Constraints object
+  moveit_msgs::Constraints path_constraints;
+  path_constraints.name = "end_effector_pose_constraint";
+
+  // 2. Create Position Constraint
+  moveit_msgs::PositionConstraint pcon;
+  pcon.header.frame_id = planning_frame; // Use the planning frame as reference
+  pcon.link_name = eef_link;             // Constraint applies to the EE link
+
+  // Define the center of the allowed position region
+  geometry_msgs::Point target_position;
+  target_position.x = 1.0;
+  target_position.y = 0.5;
+  target_position.z = 0.8;
+
+  // Define the shape of the allowed region (a small sphere)
+  geometry_msgs::SolidPrimitive sphere;
+  sphere.type = geometry_msgs::SolidPrimitive::SPHERE;
+  sphere.dimensions.resize(1);
+  sphere.dimensions[0] = 0.01; // Radius in meters (small tolerance)
+
+  // Define the pose of the allowed region (center of the sphere)
+  geometry_msgs::Pose sphere_pose;
+  sphere_pose.position = target_position;
+  sphere_pose.orientation.w = 1.0; // Identity quaternion
+
+  pcon.constraint_region.primitives.push_back(sphere);
+  pcon.constraint_region.primitive_poses.push_back(sphere_pose);
+
+  pcon.weight = 1.0; // Weight of the constraint
+
+  // 3. Create Orientation Constraint
+  moveit_msgs::OrientationConstraint ocon;
+  ocon.header.frame_id = planning_frame; // Use the planning frame as reference
+  ocon.link_name = eef_link;             // Constraint applies to the EE link
+
+  // Define the target orientation (e.g., pointing straight down if Z is robot's up)
+  // Let's assume you want the EE's local Z axis to point roughly towards the global Z axis,
+  // and allow rotation around that axis.
+  // Example: RPY (0, PI, 0) or (0, -PI, 0) might point the EE's local Z axis upwards or downwards
+  // depending on its definition. Let's use RPY (0, 0, 0) for simplicity, assuming EE Z aligns with global Z.
+  tf2::Quaternion target_quat_tf;
+  target_quat_tf.setRPY(0, 0, 0); // RPY in radians
+  ocon.orientation = tf2::toMsg(target_quat_tf);
+
+  // Define the tolerances for rotation around the target orientation's axes
+  // Set the tolerance for the axis you want to rotate freely around to a large value (M_PI or 2*M_PI)
+  // Set the tolerances for the other two axes to a small value (e.g., 0.01 radians)
+  // Example: Allow free rotation around the target orientation's Z axis
+  ocon.absolute_x_axis_tolerance = 0.01; // radians
+  ocon.absolute_y_axis_tolerance = 0.01; // radians
+  ocon.absolute_z_axis_tolerance = 2 * M_PI; // radians (allow full rotation)
+
+  // The parameterization IDENTITY is usually used with absolute tolerances
+  ocon.parameterization = moveit_msgs::OrientationConstraint::IDENTITY;
+
+  ocon.weight = 1.0; // Weight of the constraint
+
+  // 4. Add constraints to the Constraints object
+  path_constraints.position_constraints.push_back(pcon);
+  path_constraints.orientation_constraints.push_back(ocon);
+
+  // 5. Apply path constraints to the move group
+  move_group_interface.setPathConstraints(path_constraints);
+  ROS_INFO("Path constraints applied.");
+
+  // 6. Set a target pose for planning
+  // The target pose should be reachable and satisfy the constraints.
+  // Let's set a target pose that is at the center of our position constraint
+  // and has an orientation that is the constraint orientation rotated by some amount around the allowed axis.
+  geometry_msgs::PoseStamped target_pose;
+  target_pose.header.frame_id = planning_frame;
+  target_pose.pose.position = target_position;
+
+  // Rotate the target orientation by PI/2 around its Z axis for the target pose
+  tf2::Quaternion target_quat_rotated_tf;
+  tf2::Quaternion rotation_around_z;
+  rotation_around_z.setRPY(0, 0, M_PI / 2.0); // Rotate by 90 degrees around Z
+  target_quat_rotated_tf = target_quat_tf * rotation_around_z; // Multiply quaternions
+
+  target_pose.pose.orientation = tf2::toMsg(target_quat_rotated_tf);
+
+  move_group_interface.setPoseTarget(target_pose);
+  ROS_INFO_STREAM("Setting pose target: " << target_pose);
 
 
-    // --- 2. Create a sample PointStamped message ---
-    // This point is at (0, 0, 0) in the 'base_link' frame
-    geometry_msgs::msg::PointStamped point_stamped;
-    point_stamped.header.stamp = this->get_clock()->now();
-    point_stamped.header.frame_id = "base_link"; // This must match the transform's frame_id
-    point_stamped.point.x = 0.0;
-    point_stamped.point.y = 0.0;
-    point_stamped.point.z = 0.0;
+  // 7. Plan the trajectory
+  moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+  ROS_INFO("Attempting to plan trajectory with constraints...");
+  bool success = (move_group_interface.plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
 
-    RCLCPP_INFO(this->get_logger(), "\nOriginal Point:");
-    RCLCPP_INFO(this->get_logger(), "  Coordinates: (%f, %f, %f)",
-      point_stamped.point.x, point_stamped.point.y, point_stamped.point.z);
-    RCLCPP_INFO(this->get_logger(), "  In frame: %s", point_stamped.header.frame_id.c_str());
+  ROS_INFO_STREAM("Planning " << (success ? "SUCCEEDED" : "FAILED"));
 
+  // 8. (Optional) Execute the planned path
+  // if (success)
+  // {
+  //   ROS_INFO("Executing planned path...");
+  //   move_group_interface.execute(my_plan);
+  //   ROS_INFO("Path execution complete.");
+  // }
 
-    // --- 3. Apply the transform to the point ---
-    // The point_stamped's frame_id ('base_link') matches the transform's frame_id.
-    // The resulting point will be in the transform's child_frame_id ('tool0').
-    geometry_msgs::msg::PointStamped transformed_point;
-    try {
-      // tf2::doTransform(input, output, transform);
-      tf2::doTransform(point_stamped, transformed_point, sample_transform);
+  // 9. Clear constraints
+  move_group_interface.clearPathConstraints();
+  ROS_INFO("Path constraints cleared.");
 
-      RCLCPP_INFO(this->get_logger(), "\nTransformed Point:");
-      RCLCPP_INFO(this->get_logger(), "  Coordinates: (%f, %f, %f)",
-        transformed_point.point.x, transformed_point.point.y, transformed_point.point.z);
-      RCLCPP_INFO(this->get_logger(), "  In frame: %s", transformed_point.header.frame_id.c_str()); // This will be 'tool0'
-
-    } catch (const tf2::TransformException & ex) {
-      RCLCPP_ERROR(this->get_logger(), "Error applying transform: %s", ex.what());
-    }
-  }
-
-private:
-  // Nothing to spin on for this simple example
-};
-
-int main(int argc, char * argv[])
-{
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<TransformPointExample>();
-
-  // Since the example code is in the constructor and runs once,
-  // we don't need to call rclcpp::spin.
-  // rclcpp::spin(node);
-
-  rclcpp::shutdown();
+  ros::shutdown();
   return 0;
 }

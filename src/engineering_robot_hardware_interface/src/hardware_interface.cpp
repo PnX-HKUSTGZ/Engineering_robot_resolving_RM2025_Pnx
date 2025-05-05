@@ -215,7 +215,7 @@ return_type ERHardwareInterface::write(const rclcpp::Time & time, const rclcpp::
     packet.posv[4][0]-=1.57079632679496619;
     packet.posv[0][0]=-packet.posv[0][0];
     packet.posv[0][1]=-packet.posv[0][1];
-    uint16_t crc16 = Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), 52, 0xFFFF);
+    uint16_t crc16 = Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), 53, 0xFFFF);
     packet.crc16=crc16;
     // RCLCPP_INFO_STREAM(logger,"crc "<<crc16);
     std::vector<uint8_t> data = toVector(packet);

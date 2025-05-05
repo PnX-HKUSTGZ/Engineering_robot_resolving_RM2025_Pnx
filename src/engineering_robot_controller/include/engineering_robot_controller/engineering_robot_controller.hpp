@@ -139,6 +139,10 @@ void planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg);
 bool LoadMine();
 bool RemoveMine();
 bool LoadRedeemBox();
+bool RemoveRedeemBox();
+
+bool IsObjectInScene(const std::string& object_id);
+void cancel_mine_exchange_pipe_thread_clear();
 
 std::string MineMesh="package://engineering_robot_controller/meshes/Mine.STL";
 std::string RedeemBoxMesh="package://engineering_robot_controller/meshes/RedeemBox.STL";
@@ -162,6 +166,8 @@ rclcpp::Duration player_commmand_time_threshold=rclcpp::Duration(0,1e8);
 // 0 no ok
 // 1 ok
 std::atomic<int> mine_exchange_pipe_state;
+
+std::shared_ptr<rclcpp::TimerBase> RedeemBox_pos_pub_timer=nullptr;
 
 void player_command_sub_callback(const command_interfaces::msg::PlayerCommand::ConstSharedPtr & msg);
 PlayerCommandContent get_player_command();
