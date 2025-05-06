@@ -64,7 +64,7 @@ namespace Engineering_robot_RM2025_Pnx{
 
         if(use_virtual_box_position){
             int k=0;
-            virtual_box_position_timer_=this->create_wall_timer(50ms,[this,&k](){
+            virtual_box_position_timer_=this->create_wall_timer(10ms,[this,&k](){
                 tf2_ros::TransformBroadcaster tran(this);
                 geometry_msgs::msg::TransformStamped robot_to_base;
 
@@ -78,8 +78,65 @@ namespace Engineering_robot_RM2025_Pnx{
                 robot_to_base.transform.rotation.x=-0.6159197;
                 robot_to_base.transform.rotation.y=0.3079598;
                 robot_to_base.transform.rotation.z=-0.6159197;
-                tran.sendTransform(robot_to_base);
-                k++;
+                // robot_to_base.transform.rotation.w=1 ;
+                // robot_to_base.transform.rotation.x=0;
+                // robot_to_base.transform.rotation.y=0;
+                // robot_to_base.transform.rotation.z=0;
+                // tran.sendTransform(robot_to_base);
+
+                geometry_msgs::msg::TransformStamped msg;
+                msg.header.stamp=this->now();
+                msg.header.frame_id="robot_base_link";
+                msg.child_frame_id="sensor/RealSense";
+                msg.transform.translation.x=0.142;
+                msg.transform.translation.y=-0.0475;
+                msg.transform.translation.z=0.3632;
+                msg.transform.rotation.w=1;
+                msg.transform.rotation.x=0;
+                msg.transform.rotation.y=0;
+                msg.transform.rotation.z=0;
+                tran.sendTransform(msg);
+                geometry_msgs::msg::TransformStamped image_to_center_msg;
+                geometry_msgs::msg::TransformStamped depth_to_center_msg;
+
+                depth_to_center_msg.header.frame_id="sensor/RealSense";
+                depth_to_center_msg.child_frame_id="sensor/RealSense/depth";
+                depth_to_center_msg.header.stamp=this->now();
+                depth_to_center_msg.transform.translation.x=-0.02;
+                depth_to_center_msg.transform.translation.y=-1.1*1e-3;
+                depth_to_center_msg.transform.translation.z=0;
+                depth_to_center_msg.transform.rotation.x=0.7071068;
+                depth_to_center_msg.transform.rotation.y=0;
+                depth_to_center_msg.transform.rotation.z=0;
+                depth_to_center_msg.transform.rotation.w=-0.7071068;
+        
+                image_to_center_msg.header.frame_id="sensor/RealSense";
+                image_to_center_msg.child_frame_id="sensor/RealSense/image";
+                image_to_center_msg.header.stamp=this->now();
+                image_to_center_msg.transform.translation.x=-0.035;
+                image_to_center_msg.transform.translation.y=-1.1*1e-3;
+                image_to_center_msg.transform.translation.z=0;
+                image_to_center_msg.transform.rotation.x=0.7071068;
+                image_to_center_msg.transform.rotation.y=0;
+                image_to_center_msg.transform.rotation.z=0;
+                image_to_center_msg.transform.rotation.w=-0.7071068;
+                tran.sendTransform(image_to_center_msg);
+                tran.sendTransform(depth_to_center_msg);
+
+                geometry_msgs::msg::TransformStamped to_map;
+
+                to_map.header.frame_id="robot_base_link";
+                to_map.child_frame_id="sensor/camera";
+                to_map.header.stamp=this->now();
+                to_map.transform.rotation.w=0.7071068;
+                to_map.transform.rotation.x=-0.7071068;
+                to_map.transform.rotation.y=0;
+                to_map.transform.rotation.z=0;
+                to_map.transform.translation.x=-0.0864;
+                to_map.transform.translation.y=0.0165;
+                to_map.transform.translation.z=0.3567;
+                tran.sendTransform(to_map);
+
                 RCLCPP_INFO(this->get_logger(),"virtual_box_position pub");
             });
             RCLCPP_INFO_STREAM(this->get_logger(),"use_virtual_box_position ture, use virtual box position");

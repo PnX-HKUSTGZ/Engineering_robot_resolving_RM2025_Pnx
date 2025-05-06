@@ -137,6 +137,7 @@ std::unique_ptr<tf2_ros::TransformBroadcaster> tf2_pub_;
 // load RedeemBox and mine
 bool LoadAttachMine();
 bool LoadRedeemBox();
+bool LoadRedeemBox(geometry_msgs::msg::TransformStamped msg);
 bool RemoveRedeemBox();
 
 /**

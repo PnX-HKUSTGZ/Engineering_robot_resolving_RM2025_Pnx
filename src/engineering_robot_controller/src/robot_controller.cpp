@@ -204,6 +204,9 @@ void Engineering_robot_Controller::commmand_executor(){
         if(!command.is_started){
             continue;
         }
+        if(command.breakout){
+            continue;
+        }
 
         auto computer_state=get_computer_state();
         computer_state.current_state=1;
@@ -270,13 +273,14 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     geometry_msgs::msg::TransformStamped msg;
 
     bool get_tranform=0;
+    std::this_thread::sleep_for(60ms);
     while(!get_tranform){
         try{
             msg=tf2_buffer_->lookupTransform(
                 robot_base,
                 "object/box",
                 this->now(),
-                50ms
+                20ns
             );
             get_tranform=1;
         }
@@ -287,7 +291,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     }
     RCLCPP_INFO_STREAM(this->get_logger(),"get transform of RedeemBox and "<<robot_base);
 
-    RedeemBox_pos_pub_timer=this->create_wall_timer(33ms,[this,msg](){
+    RedeemBox_pos_pub_timer=this->create_wall_timer(10ms,[this,msg](){
         geometry_msgs::msg::TransformStamped msg_=msg;
         msg_.child_frame_id="object/fixedbox";
         msg_.header.stamp=this->now();
@@ -295,7 +299,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     });
     RCLCPP_INFO(this->get_logger(),"create RedeemBox_pos_pub_timer!");
 
-    bool LoadRedeemBoxcheck=LoadRedeemBox();
+    bool LoadRedeemBoxcheck=LoadRedeemBox(msg);
     if(!LoadRedeemBoxcheck){
         RCLCPP_ERROR(this->get_logger(),"LoadRedeemBox failed! pipe end!");
         return;
@@ -551,9 +555,12 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         RCLCPP_WARN(this->get_logger(),"plan failed! try again!");
         clear_constraints_state();
 
-        ocon.absolute_x_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
-        ocon.absolute_y_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
-        ocon.absolute_z_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
+        ocon.absolute_x_axis_tolerance=minOrientationTolerance;
+        ocon.absolute_y_axis_tolerance=minOrientationTolerance;
+        ocon.absolute_z_axis_tolerance=minOrientationTolerance;
+        // ocon.absolute_x_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
+        // ocon.absolute_y_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
+        // ocon.absolute_z_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
 
         state2_constraints.orientation_constraints.clear();
         state2_constraints.orientation_constraints.push_back(ocon);
@@ -873,6 +880,30 @@ bool Engineering_robot_Controller::LoadAttachMine(){
     return 1;
 
 }
+
+bool Engineering_robot_Controller::LoadRedeemBox(geometry_msgs::msg::TransformStamped msg){
+    static double eps=1e-9;
+    while(1){
+        auto getmsg=tf2_buffer_->lookupTransform(msg.header.frame_id,msg.child_frame_id,this->now(),1ms);
+        if(
+            std::abs(getmsg.transform.rotation.w-msg.transform.rotation.w)<=eps&&
+            std::abs(getmsg.transform.rotation.x-msg.transform.rotation.x)<=eps&&
+            std::abs(getmsg.transform.rotation.y-msg.transform.rotation.y)<=eps&&
+            std::abs(getmsg.transform.rotation.z-msg.transform.rotation.z)<=eps&&
+            std::abs(getmsg.transform.translation.x-msg.transform.translation.x)<=eps&&
+            std::abs(getmsg.transform.translation.y-msg.transform.translation.y)<=eps&&
+            std::abs(getmsg.transform.translation.z-msg.transform.translation.z)<=eps
+        ){
+            RCLCPP_INFO(this->get_logger(),"newest tramsform load! start load model!");
+            break;
+        }
+        else{
+            RCLCPP_WARN(this->get_logger(),"newest tramsform not load, waiting...");
+        }
+    }
+    return LoadRedeemBox();
+}
+
 
 bool Engineering_robot_Controller::LoadRedeemBox(){
 
