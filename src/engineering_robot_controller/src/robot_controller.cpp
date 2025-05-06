@@ -445,10 +445,10 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     geometry_msgs::msg::PoseStamped current_pose_stamped;
     geometry_msgs::msg::Pose current_pose;
     try {
-         current_pose_stamped = move_group_->getCurrentPose(ee_link);
-         current_pose=current_pose_stamped.pose;
+        current_pose_stamped = move_group_->getCurrentPose(ee_link);
+        current_pose=current_pose_stamped.pose;
 
-         RCLCPP_INFO(this->get_logger(), "Retrieved current pose successfully.");
+        RCLCPP_INFO(this->get_logger(), "Retrieved current pose successfully.");
     } 
     catch (const std::exception& e) {
         RCLCPP_ERROR(this->get_logger(), "Failed to get current pose: %s", e.what());
@@ -458,32 +458,19 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         return;
     }
 
+    Eigen::Vector3d distance(0,0,0.18);
+    Eigen::Quaterniond rotate(current_pose.orientation.w,current_pose.orientation.x,current_pose.orientation.y,current_pose.orientation.z);
+
+    Eigen::Vector3d rotated_distance=rotate*distance;
+
+    geometry_msgs::msg::Pose primitive_pose;
+    primitive_pose.position.x = rotated_distance(0)+current_pose.position.x;
+    primitive_pose.position.y = rotated_distance(1)+current_pose.position.y;
+    primitive_pose.position.z = rotated_distance(2)+current_pose.position.z;
+    primitive_pose.orientation=current_pose_stamped.pose.orientation;
 
     moveit_msgs::msg::Constraints state2_constraints;
     state2_constraints.name="state two constraints";
-
-    geometry_msgs::msg::Point RedeemBoxstate2point;
-    geometry_msgs::msg::Point transformedRedeemBoxstate2point;
-    RedeemBoxstate2point.x=0;
-    RedeemBoxstate2point.y=0;
-    RedeemBoxstate2point.z=0;
-    doPointTransform(RedeemBoxstate2point,transformedRedeemBoxstate2point,msg);
-
-    moveit_msgs::msg::PositionConstraint pcon;
-    pcon.header.frame_id=reference_frame;
-    pcon.header.stamp=this->now();
-    pcon.link_name=ee_link;
-    pcon.target_point_offset.x=0;
-    pcon.target_point_offset.y=-0.04;
-    pcon.target_point_offset.z=0;
-    pcon.weight=1.0;
-
-    shape_msgs::msg::SolidPrimitive primitive;
-    primitive.type = shape_msgs::msg::SolidPrimitive::BOX;
-    primitive.dimensions.resize(3);
-    primitive.dimensions[0] = 0.005; // Tolerance in x (meters)
-    primitive.dimensions[1] = 0.005; // Tolerance in y
-    primitive.dimensions[2] = 0.005; // Tolerance in z  
 
     moveit_msgs::msg::OrientationConstraint ocon;
     ocon.header.frame_id=reference_frame;
@@ -495,48 +482,11 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     ocon.absolute_y_axis_tolerance=0.1;
     ocon.absolute_z_axis_tolerance=0.1;
 
-    geometry_msgs::msg::Pose primitive_pose;
-    // Set the target position (example values - replace with your desired position)
-    primitive_pose.position.x = transformedRedeemBoxstate2point.x;
-    primitive_pose.position.y = transformedRedeemBoxstate2point.y;
-    primitive_pose.position.z = transformedRedeemBoxstate2point.z;
-    // Orientation is usually identity for a box center
-    primitive_pose.orientation=current_pose_stamped.pose.orientation;
-
-    std::vector<geometry_msgs::msg::Pose> waypoints;
-    waypoints.push_back(current_pose);
-    waypoints.push_back(primitive_pose);
-
-    moveit_msgs::msg::RobotTrajectory trajectory;
-    const double jump_threshold = 0.0;
-    const double eef_step = 0.005;
-    double fraction = move_group_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-
-    if (fraction >= 0.9){
-        RCLCPP_INFO_STREAM(this->get_logger(), "Path computed successfully. with fraction"<<fraction);
-    }
-    else{
-        RCLCPP_ERROR_STREAM(this->get_logger(), "Path computed Fail with fraction."<<fraction);
-    }
-
-    // pcon.constraint_region.primitives.push_back(primitive);
-    // pcon.constraint_region.primitive_poses.push_back(primitive_pose);
-    // state2_constraints.position_constraints.push_back(pcon);
-
-    // moveit_msgs::msg::OrientationConstraint ocon;
-    // ocon.header.frame_id = reference_frame; // Constraint in the planning frame
-    // ocon.header.stamp = this->now();
-    // ocon.link_name = ee_link;
-    // ocon.weight = 1.0;
-
-    // ocon.orientation=current_pose_stamped.pose.orientation;
-
     state2_constraints.orientation_constraints.push_back(ocon);
 
-    // RCLCPP_INFO_STREAM(this->get_logger(),"target two pose ("<<transformedRedeemBoxstate2point.x<<","<<transformedRedeemBoxstate2point.y<<","<<transformedRedeemBoxstate2point.z<<")");
+    RCLCPP_INFO_STREAM(this->get_logger(),"target two pose ("<<primitive_pose.position.x<<","<<primitive_pose.position.y<<","<<primitive_pose.position.z<<")");
 
     move_group_->setPathConstraints(state2_constraints);
-    // move_group_->setGoalTolerance()
     move_group_->setPoseTarget(primitive_pose);
     move_group_->setGoalOrientationTolerance(0.5);
     move_group_->setGoalPositionTolerance(0.01);
@@ -544,9 +494,6 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
-
-    // bool success=1;
-    // plan.trajectory_=trajectory;
 
     if(success){
         computer_state.current_state=4;
