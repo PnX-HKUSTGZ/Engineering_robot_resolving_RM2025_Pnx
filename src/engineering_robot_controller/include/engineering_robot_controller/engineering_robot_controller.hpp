@@ -112,6 +112,7 @@ Engineering_robot_Controller(rclcpp::NodeOptions node_options=rclcpp::NodeOption
 
 // @return init successfully
 bool MoveitInit();
+void LoadParam();
 
 private:
 
@@ -130,9 +131,6 @@ std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan> plan_;
 tf2_ros::Buffer::SharedPtr tf2_buffer_;
 std::shared_ptr<tf2_ros::TransformListener> tf2_listenser_;
 std::unique_ptr<tf2_ros::TransformBroadcaster> tf2_pub_;
-
-//receive a sign and control the arm move to target
-// void planner_trigger_call_back(const std_msgs::msg::Bool::SharedPtr& msg);
 
 // state_controll
 
@@ -162,13 +160,18 @@ std::string RedeemBoxMesh="package://engineering_robot_controller/meshes/RedeemB
 std::string RedeemBoxFram="object/fixedbox";
 std::string robot_base="robot_base_link";
 std::string end_link="end_link";
+
 double minOrientationTolerance=0.1;
-double minPositionTolerance=0.1;
+double minPositionTolerance=0.01;
 double maxOrientationTolerance=0.5;
-// double maxPositionTolerance
+double maxPositionTolerance=0.05;
+int minPlanTime=10;
+int maxPlanTime=15;
+int AllowRePlanAttempt=3;
 
-double state2MoveDis=0.2; //m
-
+double OrientationToleranceStep=0;
+double PositionToleranceStep=0;
+double PlanTimeStep=0;
 
 // exchange_state_controller
 

@@ -5,16 +5,7 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
     Node("Engineering_robot_Controller",node_options){
 
     // load param
-    if(!this->has_parameter("ARM_CONTROL_GROUP")){
-        this->declare_parameter<std::string>("ARM_CONTROL_GROUP","arm");
-        RCLCPP_WARN(this->get_logger(),"ARM_CONTROL_GROUP dosen't declare use default val \"arm\"");
-    }
-    if(!this->has_parameter("END_EFFECTOR_CONTROL_GROUP")){
-        this->declare_parameter<std::string>("END_EFFECTOR_CONTROL_GROUP","sucker");
-        RCLCPP_WARN(this->get_logger(),"END_EFFECTOR_CONTROL_GROUP dosen't declare use default val \"sucker\"");
-    }
-    ARM_CONTROL_GROUP=this->get_parameter("ARM_CONTROL_GROUP").as_string();
-    END_EFFECTOR_CONTROL_GROUP=this->get_parameter("END_EFFECTOR_CONTROL_GROUP").as_string();
+    LoadParam();
 
     RCLCPP_INFO(this->get_logger(),"Load param ok!");
 
@@ -39,6 +30,73 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
     set_player_command(player_command);
 
     RCLCPP_INFO(this->get_logger(),"Load Engineering_robot_Controller ok!");
+}
+
+void Engineering_robot_Controller::LoadParam(){
+    if(!this->has_parameter("ARM_CONTROL_GROUP")){
+        this->declare_parameter<std::string>("ARM_CONTROL_GROUP","arm");
+        RCLCPP_WARN(this->get_logger(),"ARM_CONTROL_GROUP dosen't declare use default val \"arm\"");
+    }
+    if(!this->has_parameter("END_EFFECTOR_CONTROL_GROUP")){
+        this->declare_parameter<std::string>("END_EFFECTOR_CONTROL_GROUP","sucker");
+        RCLCPP_WARN(this->get_logger(),"END_EFFECTOR_CONTROL_GROUP dosen't declare use default val \"sucker\"");
+    }
+    ARM_CONTROL_GROUP=this->get_parameter("ARM_CONTROL_GROUP").as_string();
+    END_EFFECTOR_CONTROL_GROUP=this->get_parameter("END_EFFECTOR_CONTROL_GROUP").as_string();
+
+    if(!this->has_parameter("minOrientationTolerance")){
+        this->declare_parameter<double>("minOrientationTolerance",0.1);
+        RCLCPP_WARN(this->get_logger(),"minOrientationTolerance dosen't declare, use default val 0.1");
+    }
+    if(!this->has_parameter("minPositionTolerance")){
+        this->declare_parameter<double>("minPositionTolerance",0.01);
+        RCLCPP_WARN(this->get_logger(),"minPositionTolerance dosen't declare, use default val 0.1");
+    }
+    if(!this->has_parameter("maxOrientationTolerance")){
+        this->declare_parameter<double>("maxOrientationTolerance",0.5);
+        RCLCPP_WARN(this->get_logger(),"maxOrientationTolerance dosen't declare, use default val 0.1");
+    }
+    if(!this->has_parameter("maxPositionTolerance")){
+        this->declare_parameter<double>("maxPositionTolerance",0.05);
+        RCLCPP_WARN(this->get_logger(),"maxPositionTolerance dosen't declare, use default val 0.1");
+    }
+    if(!this->has_parameter("AllowRePlanAttempt")){
+        this->declare_parameter<int>("AllowRePlanAttempt",10);
+        RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 10");
+    }
+    if(!this->has_parameter("minPlanTime")){
+        this->declare_parameter<int>("minPlanTime",10);
+        RCLCPP_WARN(this->get_logger(),"minPlanTime dosen't declare, use default val 10");
+    }
+    if(!this->has_parameter("maxPlanTime")){
+        this->declare_parameter<int>("maxPlanTime",15);
+        RCLCPP_WARN(this->get_logger(),"maxPlanTime dosen't declare, use default val 15");
+    }
+
+    minOrientationTolerance=this->get_parameter("minOrientationTolerance").as_double();
+    minPositionTolerance=this->get_parameter("minPositionTolerance").as_double();
+    maxOrientationTolerance=this->get_parameter("maxOrientationTolerance").as_double();
+    maxPositionTolerance=this->get_parameter("maxPositionTolerance").as_double();
+    AllowRePlanAttempt=this->get_parameter("AllowRePlanAttempt").as_int();
+    minPlanTime=this->get_parameter("minPlanTime").as_int();
+    maxPlanTime=this->get_parameter("maxPlanTime").as_int();
+    
+    if(AllowRePlanAttempt){
+        OrientationToleranceStep=(maxOrientationTolerance-minOrientationTolerance)/AllowRePlanAttempt;
+        PositionToleranceStep=(maxPositionTolerance-minPositionTolerance)/AllowRePlanAttempt;
+        PlanTimeStep=(maxPlanTime-minPlanTime)/AllowRePlanAttempt;
+    }
+
+    RCLCPP_INFO_STREAM(this->get_logger(), "--- Parameter Values ---");
+    RCLCPP_INFO_STREAM(this->get_logger(), "minOrientationTolerance: " << minOrientationTolerance);
+    RCLCPP_INFO_STREAM(this->get_logger(), "minPositionTolerance: " << minPositionTolerance);
+    RCLCPP_INFO_STREAM(this->get_logger(), "maxOrientationTolerance: " << maxOrientationTolerance);
+    RCLCPP_INFO_STREAM(this->get_logger(), "maxPositionTolerance: " << maxPositionTolerance);
+    RCLCPP_INFO_STREAM(this->get_logger(), "AllowRePlanAttempt: " << AllowRePlanAttempt);
+    RCLCPP_INFO_STREAM(this->get_logger(), "minPlanTime: " << minPlanTime);
+    RCLCPP_INFO_STREAM(this->get_logger(), "maxPlanTime: " << maxPlanTime);
+    RCLCPP_INFO_STREAM(this->get_logger(), "------------------------");
+
 }
 
 bool Engineering_robot_Controller::MoveitInit(){
@@ -88,13 +146,6 @@ bool Engineering_robot_Controller::MoveitInit(){
 
  
     RCLCPP_INFO(this->get_logger(),"Load Moveit2 Part ok!");
-
-    // planner_trigger_=this->create_subscription<std_msgs::msg::Bool>(
-    //     "/engineering_robot_controller/tigger",
-    //     1,
-    //     [this](const std::shared_ptr<std_msgs::msg::Bool> msg){
-    //         this->planner_trigger_call_back(msg);
-    //     });
     
     RCLCPP_INFO(this->get_logger(),"Load sub Part ok!");
 
@@ -278,10 +329,6 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
 {    //第一阶段 ====================================================================
     clear_constraints_state();
-    // if (!move_group_->setEndEffectorLink("J5_end")){
-    //     RCLCPP_ERROR(this->get_logger(),"set fail!");
-    // }
-    // else RCLCPP_INFO(this->get_logger(),"set the endeffector link : J5_end");
     computer_state.current_state=2;
     computer_state.pos1_state=PLANNING;
     set_computer_state(computer_state);
@@ -347,13 +394,25 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     // move_group_->setPathConstraints(state1_constraints);
     
     move_group_->setPoseTarget(primitive_pose);
-    move_group_->setGoalOrientationTolerance(0.1);
-    move_group_->setGoalPositionTolerance(0.01);
-    move_group_->setPlanningTime(10);
+    move_group_->setGoalOrientationTolerance(minOrientationTolerance);
+    move_group_->setGoalPositionTolerance(minPositionTolerance);
+    move_group_->setPlanningTime(minPlanTime);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
 
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+
+    for(int i=1;i<=AllowRePlanAttempt&&(!success);i++){
+        RCLCPP_WARN(this->get_logger(),"plan failed! try again!");
+        clear_constraints_state();
+        move_group_->setPoseTarget(primitive_pose);
+        move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*OrientationToleranceStep);
+        move_group_->setGoalPositionTolerance(minPositionTolerance+i*PositionToleranceStep);
+        move_group_->setPlanningTime(minPlanTime+i*PlanTimeStep);
+        move_group_->setMaxVelocityScalingFactor(1);
+        move_group_->setMaxAccelerationScalingFactor(1);
+        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+    }
 
     if(success){
         computer_state.current_state=2;
@@ -420,13 +479,6 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         }
         std::this_thread::sleep_for(20ms);
     }
-    // if(setCollisionsBetween(end_link,"RedeemBox",false)){
-    //     RCLCPP_INFO(this->get_logger(),"disable the Collision between Mine and RedeemBox");
-    // }
-    // else{
-    //     RCLCPP_ERROR(this->get_logger(),"disable the Collision between Mine and RedeemBox failed");
-    //     return ;
-    // }
 
     if(move_group_->detachObject("Mine")){
         RCLCPP_INFO(this->get_logger(),"detach Mine ok!");
@@ -478,22 +530,43 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     ocon.link_name=ee_link;
     ocon.weight=1;
     ocon.orientation=current_pose_stamped.pose.orientation;
-    ocon.absolute_x_axis_tolerance=0.1;
-    ocon.absolute_y_axis_tolerance=0.1;
-    ocon.absolute_z_axis_tolerance=0.1;
+    ocon.absolute_x_axis_tolerance=minOrientationTolerance;
+    ocon.absolute_y_axis_tolerance=minOrientationTolerance;
+    ocon.absolute_z_axis_tolerance=minOrientationTolerance;
 
-    state2_constraints.orientation_constraints.push_back(ocon);
 
     RCLCPP_INFO_STREAM(this->get_logger(),"target two pose ("<<primitive_pose.position.x<<","<<primitive_pose.position.y<<","<<primitive_pose.position.z<<")");
 
+    state2_constraints.orientation_constraints.push_back(ocon);
     move_group_->setPathConstraints(state2_constraints);
     move_group_->setPoseTarget(primitive_pose);
-    move_group_->setGoalOrientationTolerance(0.5);
-    move_group_->setGoalPositionTolerance(0.01);
-    move_group_->setPlanningTime(10);
+    move_group_->setGoalOrientationTolerance(minOrientationTolerance);
+    move_group_->setGoalPositionTolerance(minPositionTolerance);
+    move_group_->setPlanningTime(minPlanTime);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+
+    for(int i=1;i<=AllowRePlanAttempt&&(!success);i++){
+        RCLCPP_WARN(this->get_logger(),"plan failed! try again!");
+        clear_constraints_state();
+
+        ocon.absolute_x_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
+        ocon.absolute_y_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
+        ocon.absolute_z_axis_tolerance=minOrientationTolerance+i*OrientationToleranceStep;
+
+        state2_constraints.orientation_constraints.clear();
+        state2_constraints.orientation_constraints.push_back(ocon);
+
+        move_group_->setPathConstraints(state2_constraints);
+        move_group_->setPoseTarget(primitive_pose);
+        move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*OrientationToleranceStep);
+        move_group_->setGoalPositionTolerance(minPositionTolerance+i*PositionToleranceStep);
+        move_group_->setPlanningTime(minPlanTime+i*PlanTimeStep);
+        move_group_->setMaxVelocityScalingFactor(1);
+        move_group_->setMaxAccelerationScalingFactor(1);
+        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+    }
 
     if(success){
         computer_state.current_state=4;
@@ -551,7 +624,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     computer_state.pos3_state=PLANNING;
     set_computer_state(computer_state);
 
-    move_group_->setNamedTarget("home");
+    move_group_->setNamedTarget("get_mine");
 
     bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
