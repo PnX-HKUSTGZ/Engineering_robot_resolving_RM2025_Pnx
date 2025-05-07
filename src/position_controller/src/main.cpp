@@ -88,9 +88,9 @@ namespace Engineering_robot_RM2025_Pnx{
                 msg.header.stamp=this->now();
                 msg.header.frame_id="robot_base_link";
                 msg.child_frame_id="sensor/RealSense";
-                msg.transform.translation.x=0.142;
-                msg.transform.translation.y=-0.0475;
-                msg.transform.translation.z=0.3632;
+                msg.transform.translation.x=0.156999970395237;
+                msg.transform.translation.y=-0.033000353576592;
+                msg.transform.translation.z=0.36374073844197;
                 msg.transform.rotation.w=1;
                 msg.transform.rotation.x=0;
                 msg.transform.rotation.y=0;
@@ -132,9 +132,9 @@ namespace Engineering_robot_RM2025_Pnx{
                 to_map.transform.rotation.x=-0.7071068;
                 to_map.transform.rotation.y=0;
                 to_map.transform.rotation.z=0;
-                to_map.transform.translation.x=-0.0864;
-                to_map.transform.translation.y=0.0165;
-                to_map.transform.translation.z=0.3567;
+                to_map.transform.translation.x=-0.080000000000085;
+                to_map.transform.translation.y=0.0121000016614134;
+                to_map.transform.translation.z=0.36124073844197;
                 tran.sendTransform(to_map);
 
                 RCLCPP_INFO(this->get_logger(),"virtual_box_position pub");
