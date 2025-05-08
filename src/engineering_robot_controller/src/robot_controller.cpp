@@ -57,19 +57,19 @@ void Engineering_robot_Controller::LoadParam(){
         RCLCPP_WARN(this->get_logger(),"maxOrientationTolerance dosen't declare, use default val 0.1");
     }
     if(!this->has_parameter("maxPositionTolerance")){
-        this->declare_parameter<double>("maxPositionTolerance",0.05);
+        this->declare_parameter<double>("maxPositionTolerance",0.5);
         RCLCPP_WARN(this->get_logger(),"maxPositionTolerance dosen't declare, use default val 0.1");
     }
     if(!this->has_parameter("AllowRePlanAttempt")){
-        this->declare_parameter<int>("AllowRePlanAttempt",10);
+        this->declare_parameter<int>("AllowRePlanAttempt",3);
         RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 10");
     }
     if(!this->has_parameter("minPlanTime")){
-        this->declare_parameter<int>("minPlanTime",10);
-        RCLCPP_WARN(this->get_logger(),"minPlanTime dosen't declare, use default val 10");
+        this->declare_parameter<int>("minPlanTime",3);
+        RCLCPP_WARN(this->get_logger(),"minPlanTime dosen't declare, use default val 3");
     }
     if(!this->has_parameter("maxPlanTime")){
-        this->declare_parameter<int>("maxPlanTime",15);
+        this->declare_parameter<int>("maxPlanTime",3);
         RCLCPP_WARN(this->get_logger(),"maxPlanTime dosen't declare, use default val 15");
     }
 
@@ -347,7 +347,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     geometry_msgs::msg::Point transformedRedeemBoxstate1point;
     RedeemBoxstate1point.x=0;
     RedeemBoxstate1point.y=0;
-    RedeemBoxstate1point.z=-0.25;
+    RedeemBoxstate1point.z=-0.210;
     doPointTransform(RedeemBoxstate1point,transformedRedeemBoxstate1point,msg);
     RCLCPP_INFO_STREAM(this->get_logger(),"target one pose ("<<transformedRedeemBoxstate1point.x<<","<<transformedRedeemBoxstate1point.y<<","<<transformedRedeemBoxstate1point.z<<")");
 

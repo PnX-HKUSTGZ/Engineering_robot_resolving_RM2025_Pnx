@@ -10,9 +10,9 @@ default_acceleration_scaling_factor: 1
 joint_limits:
   J1J:
     has_velocity_limits: true
-    max_velocity: 0.3
+    max_velocity: 0.15
     has_acceleration_limits: true
-    max_acceleration: 0.2
+    max_acceleration: 0.1
   J2J:
     has_velocity_limits: true
     max_velocity: 8.5
