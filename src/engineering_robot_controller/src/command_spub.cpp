@@ -17,8 +17,6 @@ void Engineering_robot_Controller::player_command_sub_callback(const command_int
     input_command.breakout=msg->breakout;
     input_command.is_finish=msg->is_finish;
     input_command.is_started=msg->is_started;
-    input_command.is_attach=msg->is_attach;
-
     set_player_command(input_command);
 }
 
@@ -30,7 +28,6 @@ void Engineering_robot_Controller::computer_state_pub_callback(){
     msg.current_state=current_state.current_state;
     msg.pos1_state=current_state.pos1_state;
     msg.pos2_state=current_state.pos2_state;
-    msg.pos3_state=current_state.pos3_state;
     computer_state_pub_->publish(msg);
 }
 
@@ -42,6 +39,39 @@ PlayerCommandContent Engineering_robot_Controller::get_player_command(){
 ComputerState Engineering_robot_Controller::get_computer_state(){
     std::lock_guard<std::mutex> ul(computer_state_mutex);
     return computer_state;
+}
+
+void Engineering_robot_Controller::set_computer_state(int statenum,int state){
+    if(state<0||state>2){
+        RCLCPP_WARN(this->get_logger(),"set_computer_state error! with state :[%d]",state);
+        return;
+    }
+    std::lock_guard<std::mutex> ul(computer_state_mutex);
+    switch (statenum){
+    case STATE_ONE:
+        computer_state.current_state=state;
+        computer_state.pos1_state=state;
+        computer_state.pos2_state=0;
+        break;
+    case STATE_TWO:
+        computer_state.current_state=state;
+        computer_state.pos2_state=state;
+        computer_state.pos1_state=0;
+        break;
+    case STATE_WAIT:
+        computer_state.current_state=state;
+        computer_state.pos1_state=0;
+        computer_state.pos2_state=0;
+        break;
+    case STATE_ERROR:
+        computer_state.current_state=state;
+        computer_state.pos1_state=0;
+        computer_state.pos2_state=0;
+        break;
+    default:
+        RCLCPP_WARN(this->get_logger(),"set_computer_state error! with statenum :[%d]",statenum);
+        break;
+    }
 }
 
 }// namespace Engineering_robot_RM2025_Pnx

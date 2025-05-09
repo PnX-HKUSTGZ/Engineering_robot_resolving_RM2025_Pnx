@@ -74,14 +74,23 @@
 
 #define VISUALIZE
 
-#define PLANNING 2
-#define FINISH 3
-#define FAILED 0
+#define STATE_ONE 1
+#define STATE_TWO 2
+#define STATE_ERROR 3
+#define STATE_WAIT 0
+
+#define FINISH 2
+#define PLANNING 0
 #define MOVING 1
 
-#define REC_SUCCESS 3
-#define REC_ING 1
+#define REC_SUCCESS 1
 #define REC_FAIL 0
+
+#define PIPE_THREAD_RUNNING 0
+#define PIPE_THREAD_ERROR 1
+#define PIPE_THREAD_OK 2
+#define PIPE_THREAD_NOLAUNCH 3
+
 
 namespace Engineering_robot_RM2025_Pnx {
 namespace rvt = rviz_visual_tools;
@@ -91,7 +100,6 @@ using namespace std::chrono_literals;
 struct PlayerCommandContent{
     rclcpp::Time command_time=rclcpp::Time(0,0);
     bool is_started=0;
-    bool is_attach=0;
     bool is_finish=0;
     bool breakout=0;
 };
@@ -101,7 +109,6 @@ struct ComputerState{
     uint8_t recognition:2;
     uint8_t pos1_state:2;
     uint8_t pos2_state:2;
-    uint8_t pos3_state:2;
 };
 
 class Engineering_robot_Controller: public rclcpp::Node{
@@ -168,7 +175,6 @@ double maxOrientationTolerance=0.5;
 double maxPositionTolerance=0.05;
 int minPlanTime=10;
 int maxPlanTime=15;
-int AllowRePlanAttempt=3;
 int AllowPlanAttempt=5;
 
 double OrientationToleranceStep=0;
@@ -201,6 +207,7 @@ PlayerCommandContent get_player_command();
 ComputerState get_computer_state();
 void set_player_command(const PlayerCommandContent & input_command);
 void set_computer_state(const ComputerState & input_state);
+void set_computer_state(int statenum,int state);
 void computer_state_pub_callback();
 
 void commmand_executor();

@@ -14,20 +14,16 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
     tf2_pub_=std::make_unique<tf2_ros::TransformBroadcaster>(this);
     RCLCPP_INFO(this->get_logger(),"Load tf2 ok!");
 
-    auto computer_state=get_computer_state();
-    computer_state.current_state=0;
-    computer_state.recognition=0;
-    computer_state.pos1_state=0;
-    computer_state.pos2_state=0;
-    computer_state.pos3_state=0;
-    set_computer_state(computer_state);
+    set_computer_state(STATE_WAIT,STATE_WAIT);
+    mine_exchange_pipe_state=PIPE_THREAD_NOLAUNCH;
 
     auto player_command=get_player_command();
     player_command.breakout=0;
     player_command.is_finish=0;
     player_command.is_started=0;
-    player_command.is_attach;
     set_player_command(player_command);
+
+
 
     RCLCPP_INFO(this->get_logger(),"Load Engineering_robot_Controller ok!");
 }
@@ -45,51 +41,55 @@ void Engineering_robot_Controller::LoadParam(){
     END_EFFECTOR_CONTROL_GROUP=this->get_parameter("END_EFFECTOR_CONTROL_GROUP").as_string();
 
     if(!this->has_parameter("minOrientationTolerance")){
-        this->declare_parameter<double>("minOrientationTolerance",0.1);
+        this->declare_parameter<double>("minOrientationTolerance",1);
         RCLCPP_WARN(this->get_logger(),"minOrientationTolerance dosen't declare, use default val 0.1");
     }
     if(!this->has_parameter("minPositionTolerance")){
-        this->declare_parameter<double>("minPositionTolerance",0.01);
-        RCLCPP_WARN(this->get_logger(),"minPositionTolerance dosen't declare, use default val 0.1");
+        this->declare_parameter<double>("minPositionTolerance",0.002);
+        RCLCPP_WARN(this->get_logger(),"minPositionTolerance dosen't declare, use default val 0.002");
     }
     if(!this->has_parameter("maxOrientationTolerance")){
-        this->declare_parameter<double>("maxOrientationTolerance",0.5);
-        RCLCPP_WARN(this->get_logger(),"maxOrientationTolerance dosen't declare, use default val 0.1");
+        this->declare_parameter<double>("maxOrientationTolerance",1.01);
+        RCLCPP_WARN(this->get_logger(),"maxOrientationTolerance dosen't declare, use default val 0.5");
     }
     if(!this->has_parameter("maxPositionTolerance")){
-        this->declare_parameter<double>("maxPositionTolerance",0.5);
-        RCLCPP_WARN(this->get_logger(),"maxPositionTolerance dosen't declare, use default val 0.1");
-    }
-    if(!this->has_parameter("AllowRePlanAttempt")){
-        this->declare_parameter<int>("AllowRePlanAttempt",3);
-        RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 10");
-    }
-    if(!this->has_parameter("minPlanTime")){
-        this->declare_parameter<int>("minPlanTime",3);
-        RCLCPP_WARN(this->get_logger(),"minPlanTime dosen't declare, use default val 3");
-    }
-    if(!this->has_parameter("maxPlanTime")){
-        this->declare_parameter<int>("maxPlanTime",3);
-        RCLCPP_WARN(this->get_logger(),"maxPlanTime dosen't declare, use default val 3");
+        this->declare_parameter<double>("maxPositionTolerance",0.005);
+        RCLCPP_WARN(this->get_logger(),"maxPositionTolerance dosen't declare, use default val 0.005");
     }
     if(!this->has_parameter("AllowPlanAttempt")){
-        this->declare_parameter<int>("AllowPlanAttempt",5);
-        RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 5");
+        this->declare_parameter<int>("AllowPlanAttempt",3);
+        RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 3");
+    }
+    if(!this->has_parameter("minPlanTime")){
+        this->declare_parameter<int>("minPlanTime",2);
+        RCLCPP_WARN(this->get_logger(),"minPlanTime dosen't declare, use default val 2");
+    }
+    if(!this->has_parameter("maxPlanTime")){
+        this->declare_parameter<int>("maxPlanTime",3.5);
+        RCLCPP_WARN(this->get_logger(),"maxPlanTime dosen't declare, use default val 3.5");
+    }
+    if(!this->has_parameter("AllowPlanAttempt")){
+        this->declare_parameter<int>("AllowPlanAttempt",3);
+        RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 3");
     }
 
     minOrientationTolerance=this->get_parameter("minOrientationTolerance").as_double();
     minPositionTolerance=this->get_parameter("minPositionTolerance").as_double();
     maxOrientationTolerance=this->get_parameter("maxOrientationTolerance").as_double();
     maxPositionTolerance=this->get_parameter("maxPositionTolerance").as_double();
-    AllowRePlanAttempt=this->get_parameter("AllowRePlanAttempt").as_int();
+    AllowPlanAttempt=this->get_parameter("AllowPlanAttempt").as_int();
     minPlanTime=this->get_parameter("minPlanTime").as_int();
     maxPlanTime=this->get_parameter("maxPlanTime").as_int();
     AllowPlanAttempt=this->get_parameter("AllowPlanAttempt").as_int();
     
-    if(AllowRePlanAttempt){
-        OrientationToleranceStep=(maxOrientationTolerance-minOrientationTolerance)/AllowRePlanAttempt;
-        PositionToleranceStep=(maxPositionTolerance-minPositionTolerance)/AllowRePlanAttempt;
-        PlanTimeStep=(maxPlanTime-minPlanTime)/AllowRePlanAttempt;
+    if(AllowPlanAttempt<1){
+        RCLCPP_ERROR(this->get_logger(),"AllowPlanAttempt must be greater than 0, use default val 3");
+        AllowPlanAttempt=3;
+    }
+    if(AllowPlanAttempt-1){
+        OrientationToleranceStep=(maxOrientationTolerance-minOrientationTolerance)/(AllowPlanAttempt-1);
+        PositionToleranceStep=(maxPositionTolerance-minPositionTolerance)/(AllowPlanAttempt-1);
+        PlanTimeStep=(maxPlanTime-minPlanTime)/(AllowPlanAttempt-1);
     }
 
     RCLCPP_INFO_STREAM(this->get_logger(), "--- Parameter Values ---");
@@ -97,7 +97,7 @@ void Engineering_robot_Controller::LoadParam(){
     RCLCPP_INFO_STREAM(this->get_logger(), "minPositionTolerance: " << minPositionTolerance);
     RCLCPP_INFO_STREAM(this->get_logger(), "maxOrientationTolerance: " << maxOrientationTolerance);
     RCLCPP_INFO_STREAM(this->get_logger(), "maxPositionTolerance: " << maxPositionTolerance);
-    RCLCPP_INFO_STREAM(this->get_logger(), "AllowRePlanAttempt: " << AllowRePlanAttempt);
+    RCLCPP_INFO_STREAM(this->get_logger(), "AllowPlanAttempt: " << AllowPlanAttempt);
     RCLCPP_INFO_STREAM(this->get_logger(), "minPlanTime: " << minPlanTime);
     RCLCPP_INFO_STREAM(this->get_logger(), "maxPlanTime: " << maxPlanTime);
     RCLCPP_INFO_STREAM(this->get_logger(), "------------------------");
