@@ -274,6 +274,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     bool success=0;
 
     clear_constraints_state();
+    
     move_group_->setPoseTarget(TransformedTargetPose);
     move_group_->setGoalOrientationTolerance(1);
     move_group_->setGoalPositionTolerance(0.005);
