@@ -41,6 +41,15 @@ ComputerState Engineering_robot_Controller::get_computer_state(){
     return computer_state;
 }
 
+void Engineering_robot_Controller::set_regonition_state(int statenum,int state){
+    if(state!=REC_SUCCESS&&state!=REC_FAIL){
+        RCLCPP_WARN(this->get_logger(),"set_regonition_state error! with state :[%d]",state);
+        return;
+    }
+    std::lock_guard<std::mutex> ul(computer_state_mutex);
+    computer_state.recognition=state;
+}
+
 void Engineering_robot_Controller::set_computer_state(int statenum,int state){
     if(state<0||state>2){
         RCLCPP_WARN(this->get_logger(),"set_computer_state error! with state :[%d]",state);

@@ -180,6 +180,7 @@ void Engineering_robot_Controller::commmand_executor(){
         if(command.breakout){
             continue;
         }
+        RCLCPP_INFO(this->get_logger(),"commmand_executor get");
 
         auto computer_state=get_computer_state();
 

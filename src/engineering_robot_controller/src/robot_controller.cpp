@@ -169,6 +169,13 @@ bool Engineering_robot_Controller::MoveitInit(){
         this->commmand_executor();
     });
 
+    regonition_update_thread_=std::make_shared<std::thread>([this](){
+        while(rclcpp::ok()){
+            this->regonition_update();
+            std::this_thread::sleep_for(10ms);
+        }
+    });
+
     RCLCPP_INFO(this->get_logger(),"MoveitInit ok!");
 
 
@@ -336,7 +343,7 @@ bool Engineering_robot_Controller::LoadAttachMine(){
     geometry_msgs::msg::Pose object_pose_relative_to_tf;
 
     object_pose_relative_to_tf.position.x = 0.1;
-    object_pose_relative_to_tf.position.y = 0.1;
+    object_pose_relative_to_tf.position.y = -0.1;
     object_pose_relative_to_tf.position.z = 0.0;
     object_pose_relative_to_tf.orientation.x = 0;
     object_pose_relative_to_tf.orientation.y = 0.0;
@@ -547,6 +554,23 @@ bool Engineering_robot_Controller::setCollisionsBetween(const std::string& name1
     }
 
     return success;
+}
+
+void Engineering_robot_Controller::regonition_update(){
+    geometry_msgs::msg::TransformStamped msg;
+    try{
+        msg=tf2_buffer_->lookupTransform(
+            robot_base,
+            "object/box",
+            this->now(),
+            20ms
+        );
+    }
+    catch(const std::exception & e){
+        RCLCPP_ERROR_STREAM(this->get_logger(),"look transform of RedeemBox fail with"<<e.what()<<", try again");
+        set_regonition_state(STATE_ONE,REC_FAIL);
+    }
+    set_regonition_state(STATE_ONE,REC_SUCCESS);
 }
 
 bool Engineering_robot_Controller::disableObjectRobotCollision(const std::string& object_id, const std::vector<std::string>& robot_link_names){

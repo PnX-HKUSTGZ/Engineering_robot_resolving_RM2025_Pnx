@@ -194,6 +194,7 @@ std::shared_ptr<rclcpp::Publisher<command_interfaces::msg::ComputerState> > comp
 // 以30hz的频率发布上位机状态
 rclcpp::TimerBase::SharedPtr computer_state_pub_timer_;
 std::shared_ptr<std::thread> commmand_executor_thread_;
+std::shared_ptr<std::thread> regonition_update_thread_;
 rclcpp::Duration player_commmand_time_threshold=rclcpp::Duration(0,1e8);
 
 // 0 no ok
@@ -208,7 +209,10 @@ ComputerState get_computer_state();
 void set_player_command(const PlayerCommandContent & input_command);
 void set_computer_state(const ComputerState & input_state);
 void set_computer_state(int statenum,int state);
+void set_regonition_state(int statenum,int state);
+
 void computer_state_pub_callback();
+void regonition_update();
 
 void commmand_executor();
 void mine_exchange_pipe();
