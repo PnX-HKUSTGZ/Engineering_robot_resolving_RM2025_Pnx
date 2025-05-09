@@ -175,14 +175,14 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
         nowcommand.breakout=packet.breakout;
         nowcommand.is_finish=packet.is_finish;
         nowcommand.is_started=packet.is_started;
-        nowcommand.is_tuning_finish=packet.is_tuning_finish;
+        nowcommand.is_tuning_finish=packet.is_attach;
         nowcommand.command_time=node_->now();
 
         command_interfaces::msg::PlayerCommand msg;
         msg.breakout=nowcommand.breakout;
         msg.is_finish=nowcommand.is_finish;
         msg.is_started=nowcommand.is_started;
-        msg.is_tuning_finish=nowcommand.is_tuning_finish;
+        msg.is_attach=nowcommand.is_tuning_finish;
         msg.header.frame_id="/playercommand";
         msg.header.stamp=node_->now();
 

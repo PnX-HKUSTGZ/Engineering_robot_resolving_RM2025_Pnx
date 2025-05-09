@@ -91,7 +91,7 @@ using namespace std::chrono_literals;
 struct PlayerCommandContent{
     rclcpp::Time command_time=rclcpp::Time(0,0);
     bool is_started=0;
-    bool is_tuning_finish=0;
+    bool is_attach=0;
     bool is_finish=0;
     bool breakout=0;
 };
