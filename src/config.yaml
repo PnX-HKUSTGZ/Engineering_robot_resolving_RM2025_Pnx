@@ -1,9 +1,9 @@
 engineering_robot_controller:
     # Controller manager configuration
-    minOrientationTolerance: 0.5
-    minPositionTolerance: 0.01
-    maxOrientationTolerance: 0.6
-    maxPositionTolerance: 0.018
+    minOrientationTolerance: 0.2
+    minPositionTolerance: 0.04
+    maxOrientationTolerance: 0.3
+    maxPositionTolerance: 0.05
     AllowPlanAttempt: 4
     minPlanTime: 5
     maxPlanTime: 5
