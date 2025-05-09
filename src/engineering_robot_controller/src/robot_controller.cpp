@@ -166,6 +166,32 @@ bool Engineering_robot_Controller::MoveitInit(){
 
     RCLCPP_INFO(this->get_logger(),"MoveitInit ok!");
 
+
+    robot_get_min_sub_=this->create_subscription<std_msgs::msg::Bool>("/robot_trigger/get_mine",10,[this](const std_msgs::msg::Bool::ConstSharedPtr & msg){
+        if(this->robot_go_pose("get_mine")){
+            RCLCPP_INFO(this->get_logger(),"robot_trigger get_mine ok!");
+        }
+        else{
+            RCLCPP_ERROR(this->get_logger(),"robot_trigger get_mine fail!");
+        }
+    });
+    robot_go_home_sub_=this->create_subscription<std_msgs::msg::Bool>("/robot_trigger/go_home",10,[this](const std_msgs::msg::Bool::ConstSharedPtr & msg){
+        if(this->robot_go_pose("home")){
+            RCLCPP_INFO(this->get_logger(),"robot_trigger go_home ok!");
+        }
+        else{
+            RCLCPP_ERROR(this->get_logger(),"robot_trigger go_home fail!");
+        }
+    });
+
+    robot_auto_exchange_sub_=this->create_subscription<std_msgs::msg::Bool>("/robot_trigger/auto_exchange",10,[this](const std_msgs::msg::Bool::ConstSharedPtr & msg){
+        if(this->AutoExchangeMine()){
+            RCLCPP_INFO(this->get_logger(),"robot_trigger auto_exchange ok!");
+        }
+        else{
+            RCLCPP_ERROR(this->get_logger(),"robot_trigger auto_exchange fail!");
+        }
+    });
     return 1;
 
 }
@@ -176,7 +202,7 @@ void Engineering_robot_Controller::clear_constraints_state(){
     move_group_->clearTrajectoryConstraints();
 }
 
-void Engineering_robot_Controller::cancel_mine_exchange_pipe_thread_clear(){
+void Engineering_robot_Controller::clearPlanScene(){
     RemoveRedeemBox();
     try{
         move_group_->detachObject("Mine");
@@ -185,10 +211,7 @@ void Engineering_robot_Controller::cancel_mine_exchange_pipe_thread_clear(){
         RCLCPP_ERROR(this->get_logger(),"Detach Mine error with %s",e.what());
     }
     RemoveObject("Mine");
-    if(RedeemBox_pos_pub_timer!=nullptr){
-        RedeemBox_pos_pub_timer->cancel();
-        RedeemBox_pos_pub_timer=nullptr;
-    }
+    unfix_RedeemBox_pos();
     RCLCPP_INFO(this->get_logger(),"RedeemBox_pos_pub_timer cancel and set to nullptr");
 }
 
@@ -220,9 +243,9 @@ void Engineering_robot_Controller::commmand_executor(){
 
         std::thread mine_exchange_pipe_thread([this](){
             mine_exchange_pipe_state=0;
-            cancel_mine_exchange_pipe_thread_clear();
+            clearPlanScene();
             this->mine_exchange_pipe();
-            cancel_mine_exchange_pipe_thread_clear();
+            clearPlanScene();
             mine_exchange_pipe_state=1;
         });
 
@@ -237,7 +260,7 @@ void Engineering_robot_Controller::commmand_executor(){
                 RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe stop by player");
                 RCLCPP_INFO(this->get_logger(),"try to stop mine_exchange_pipe");
                 pthread_cancel(mine_exchange_pipe_thread.native_handle());
-                cancel_mine_exchange_pipe_thread_clear();
+                clearPlanScene();
                 mine_exchange_pipe_thread.join();
                 RCLCPP_INFO(this->get_logger(),"stop mine_exchange_pipe!");
                 break;
@@ -270,34 +293,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     computer_state.recognition=REC_ING;
     set_computer_state(computer_state);
 
-    geometry_msgs::msg::TransformStamped msg;
-
-    bool get_tranform=0;
-    std::this_thread::sleep_for(60ms);
-    while(!get_tranform){
-        try{
-            msg=tf2_buffer_->lookupTransform(
-                robot_base,
-                "object/box",
-                this->now(),
-                20ns
-            );
-            get_tranform=1;
-        }
-        catch(const std::exception & e){
-            RCLCPP_ERROR_STREAM(this->get_logger(),"look transform of RedeemBox fail with"<<e.what()<<", try again");
-            get_tranform=0;
-        }
-    }
-    RCLCPP_INFO_STREAM(this->get_logger(),"get transform of RedeemBox and "<<robot_base);
-
-    RedeemBox_pos_pub_timer=this->create_wall_timer(10ms,[this,msg](){
-        geometry_msgs::msg::TransformStamped msg_=msg;
-        msg_.child_frame_id="object/fixedbox";
-        msg_.header.stamp=this->now();
-        this->tf2_pub_->sendTransform(msg_);
-    });
-    RCLCPP_INFO(this->get_logger(),"create RedeemBox_pos_pub_timer!");
+    geometry_msgs::msg::TransformStamped msg=fix_RedeemBox_pos();
 
     bool LoadRedeemBoxcheck=LoadRedeemBox(msg);
     if(!LoadRedeemBoxcheck){
@@ -862,9 +858,6 @@ bool Engineering_robot_Controller::LoadAttachMine(){
         return 0; 
     }
 
-    IsObjectInScene("Mine");
-    RCLCPP_INFO(this->get_logger(),"1");
-
     bool attachObjectCheck=move_group_->attachObject(collision_object.id,collision_object.header.frame_id);
     if(attachObjectCheck){
         RCLCPP_INFO(this->get_logger(), "attachObject %s , %s ok!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
@@ -873,9 +866,6 @@ bool Engineering_robot_Controller::LoadAttachMine(){
         RCLCPP_ERROR(this->get_logger(), "attachObjectCheck %s , %s failed!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
         return 0; 
     }
-
-    IsObjectInScene("Mine");
-    RCLCPP_INFO(this->get_logger(),"1");
 
     return 1;
 

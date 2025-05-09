@@ -34,7 +34,7 @@
         <joint name="J2J" value="0.3298"/>
         <joint name="J3J" value="-2.2043"/>
         <joint name="J4J" value="-1.5795"/>
-        <joint name="J5_xJ" value="0.3298"/>
+        <joint name="J5_xJ" value="0.2617"/>
         <joint name="J5_zJ" value="0"/>
     </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->

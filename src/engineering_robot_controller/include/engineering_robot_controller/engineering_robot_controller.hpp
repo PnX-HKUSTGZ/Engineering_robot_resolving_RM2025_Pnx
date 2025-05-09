@@ -154,7 +154,7 @@ bool RemoveObject(const std::string & name);
 bool disableObjectRobotCollision(const std::string& object_id, const std::vector<std::string>& robot_link_names);
 bool disableObjectRobotCollision(const std::string& object_id, const std::string robot_link_name);
 bool IsObjectInScene(const std::string& object_id);
-void cancel_mine_exchange_pipe_thread_clear();
+void clearPlanScene();
 
 std::string MineMesh="package://engineering_robot_controller/meshes/Mine.STL";
 std::string RedeemBoxMesh="package://engineering_robot_controller/meshes/RedeemBox.STL";
@@ -205,6 +205,19 @@ void computer_state_pub_callback();
 void commmand_executor();
 void mine_exchange_pipe();
 void clear_constraints_state();
+
+//debug
+
+std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_get_min_sub_;
+std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_go_home_sub_;
+std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_auto_exchange_sub_;
+
+bool robot_go_pose(const std::string & name);
+bool AutoExchangeMine();
+
+geometry_msgs::msg::TransformStamped fix_RedeemBox_pos();
+
+void unfix_RedeemBox_pos();
 
 };// Engineering_robot_Controller
 

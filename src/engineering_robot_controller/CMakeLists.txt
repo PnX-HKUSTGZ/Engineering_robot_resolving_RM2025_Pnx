@@ -46,6 +46,8 @@ find_package(geometry_msgs REQUIRED)
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
+message(STATUS "SOURCES: ${SOURCES}")
+
 add_executable(engineering_robot_controller ${SOURCES})
 
 ament_target_dependencies(engineering_robot_controller

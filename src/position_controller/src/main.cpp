@@ -36,30 +36,6 @@ namespace Engineering_robot_RM2025_Pnx{
 
         Robot_base_tf2_pub_=std::make_shared<tf2_ros::TransformBroadcaster>(this);
 
-
-        if(false){
-            virtual_robot_position_timer_=this->create_wall_timer(50ms,[this](){
-                geometry_msgs::msg::TransformStamped robot_to_base;
-
-                robot_to_base.header.stamp=this->now();
-                robot_to_base.header.frame_id=fixed_frame;
-                robot_to_base.child_frame_id=robot_base;
-                robot_to_base.transform.translation.x=0;
-                robot_to_base.transform.translation.y=0;
-                robot_to_base.transform.translation.z=0;
-                robot_to_base.transform.rotation.w=0.525322;
-                robot_to_base.transform.rotation.x=-0.8509035;
-                robot_to_base.transform.rotation.y=0;
-                robot_to_base.transform.rotation.z=0;
-
-                Robot_base_tf2_pub_->sendTransform(robot_to_base);
-                RCLCPP_INFO(this->get_logger(),"virtual_robot_position pub");
-            });
-            RCLCPP_INFO_STREAM(this->get_logger(),"use_virtual_robot_position ture, use virtual robot position");
-        }
-
-        RCLCPP_INFO_STREAM(this->get_logger(),"robot_position part load finish");
-
     // box_position
 
         if(use_virtual_box_position){
@@ -82,7 +58,7 @@ namespace Engineering_robot_RM2025_Pnx{
                 // robot_to_base.transform.rotation.x=0;
                 // robot_to_base.transform.rotation.y=0;
                 // robot_to_base.transform.rotation.z=0;
-                // tran.sendTransform(robot_to_base);
+                tran.sendTransform(robot_to_base);
 
                 geometry_msgs::msg::TransformStamped msg;
                 msg.header.stamp=this->now();
