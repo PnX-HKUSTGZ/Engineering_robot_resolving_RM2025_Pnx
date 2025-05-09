@@ -120,7 +120,7 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     geometry_msgs::msg::Pose TransformedTargetPose;
     TargetPose.position.x=0;
     TargetPose.position.y=0;
-    TargetPose.position.z=-0.15;
+    TargetPose.position.z=0;
     TargetPose.orientation.x=0;
     TargetPose.orientation.y=0;
     TargetPose.orientation.z=-0.7071068;
@@ -141,7 +141,8 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     for(int i=0;i<=AllowPlanAttempt;i++){
         move_group_->setGoalPositionTolerance(minPositionTolerance+i*PositionToleranceStep);
         move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*PositionToleranceStep);
-        RCLCPP_INFO(this->get_logger(),"robot_go_pose try %d, %lf",i,0.3+i*0.05);
+        RCLCPP_INFO(this->get_logger(),"robot_go_pose try %d, %lf",i,minPositionTolerance+i*PositionToleranceStep);
+        RCLCPP_INFO(this->get_logger(),"robot_go_pose try %d, %lf",i,minOrientationTolerance+i*PositionToleranceStep);
         success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
         if(success){
             break;
@@ -274,17 +275,19 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     bool success=0;
 
     clear_constraints_state();
-    
+
     move_group_->setPoseTarget(TransformedTargetPose);
-    move_group_->setGoalOrientationTolerance(1);
-    move_group_->setGoalPositionTolerance(0.005);
+    move_group_->setGoalOrientationTolerance(minOrientationTolerance);
+    move_group_->setGoalPositionTolerance(minPositionTolerance);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
-    move_group_->setPlanningTime(2.5);
+    move_group_->setPlanningTime(minPlanTime);
 
     for(int i=0;i<=AllowPlanAttempt;i++){
-        move_group_->setGoalOrientationTolerance(0.3+i*0.05);
-        RCLCPP_INFO(this->get_logger(),"state_one plan try %d, %lf",i,0.3+i*0.05);
+        move_group_->setGoalPositionTolerance(minPositionTolerance+i*PositionToleranceStep);
+        move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*PositionToleranceStep);
+        RCLCPP_INFO(this->get_logger(),"state one plane try %d, pose %lf",i,minPositionTolerance+i*PositionToleranceStep);
+        RCLCPP_INFO(this->get_logger(),"state one plane try %d, rotate %lf",i,minOrientationTolerance+i*PositionToleranceStep);
         success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
         if(success){
             break;

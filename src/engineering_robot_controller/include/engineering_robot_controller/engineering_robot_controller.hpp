@@ -173,8 +173,8 @@ double minOrientationTolerance=0.1;
 double minPositionTolerance=0.01;
 double maxOrientationTolerance=0.5;
 double maxPositionTolerance=0.05;
-int minPlanTime=10;
-int maxPlanTime=15;
+double minPlanTime=10;
+double maxPlanTime=15;
 int AllowPlanAttempt=5;
 
 double OrientationToleranceStep=0;

@@ -29,58 +29,21 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
 }
 
 void Engineering_robot_Controller::LoadParam(){
-    if(!this->has_parameter("ARM_CONTROL_GROUP")){
-        this->declare_parameter<std::string>("ARM_CONTROL_GROUP","arm");
-        RCLCPP_WARN(this->get_logger(),"ARM_CONTROL_GROUP dosen't declare use default val \"arm\"");
-    }
-    if(!this->has_parameter("END_EFFECTOR_CONTROL_GROUP")){
-        this->declare_parameter<std::string>("END_EFFECTOR_CONTROL_GROUP","sucker");
-        RCLCPP_WARN(this->get_logger(),"END_EFFECTOR_CONTROL_GROUP dosen't declare use default val \"sucker\"");
-    }
-    ARM_CONTROL_GROUP=this->get_parameter("ARM_CONTROL_GROUP").as_string();
-    END_EFFECTOR_CONTROL_GROUP=this->get_parameter("END_EFFECTOR_CONTROL_GROUP").as_string();
 
-    if(!this->has_parameter("minOrientationTolerance")){
-        this->declare_parameter<double>("minOrientationTolerance",1);
-        RCLCPP_WARN(this->get_logger(),"minOrientationTolerance dosen't declare, use default val 0.1");
-    }
-    if(!this->has_parameter("minPositionTolerance")){
-        this->declare_parameter<double>("minPositionTolerance",0.002);
-        RCLCPP_WARN(this->get_logger(),"minPositionTolerance dosen't declare, use default val 0.002");
-    }
-    if(!this->has_parameter("maxOrientationTolerance")){
-        this->declare_parameter<double>("maxOrientationTolerance",1.01);
-        RCLCPP_WARN(this->get_logger(),"maxOrientationTolerance dosen't declare, use default val 0.5");
-    }
-    if(!this->has_parameter("maxPositionTolerance")){
-        this->declare_parameter<double>("maxPositionTolerance",0.005);
-        RCLCPP_WARN(this->get_logger(),"maxPositionTolerance dosen't declare, use default val 0.005");
-    }
-    if(!this->has_parameter("AllowPlanAttempt")){
-        this->declare_parameter<int>("AllowPlanAttempt",3);
-        RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 3");
-    }
-    if(!this->has_parameter("minPlanTime")){
-        this->declare_parameter<int>("minPlanTime",2);
-        RCLCPP_WARN(this->get_logger(),"minPlanTime dosen't declare, use default val 2");
-    }
-    if(!this->has_parameter("maxPlanTime")){
-        this->declare_parameter<int>("maxPlanTime",3.5);
-        RCLCPP_WARN(this->get_logger(),"maxPlanTime dosen't declare, use default val 3.5");
-    }
-    if(!this->has_parameter("AllowPlanAttempt")){
-        this->declare_parameter<int>("AllowPlanAttempt",3);
-        RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 3");
-    }
+    this->declare_parameter("Location", "/home/pnx/code/Engineering_robot_resolving_RM2025_Pnx/");
+    YAML::Node config=YAML::LoadFile(this->get_parameter("Location").as_string()+"/src/config.yaml");
+    config=config["engineering_robot_controller"];
 
-    minOrientationTolerance=this->get_parameter("minOrientationTolerance").as_double();
-    minPositionTolerance=this->get_parameter("minPositionTolerance").as_double();
-    maxOrientationTolerance=this->get_parameter("maxOrientationTolerance").as_double();
-    maxPositionTolerance=this->get_parameter("maxPositionTolerance").as_double();
-    AllowPlanAttempt=this->get_parameter("AllowPlanAttempt").as_int();
-    minPlanTime=this->get_parameter("minPlanTime").as_int();
-    maxPlanTime=this->get_parameter("maxPlanTime").as_int();
-    AllowPlanAttempt=this->get_parameter("AllowPlanAttempt").as_int();
+    ARM_CONTROL_GROUP = config["ARM_CONTROL_GROUP"].as<std::string>("arm");
+    END_EFFECTOR_CONTROL_GROUP = config["END_EFFECTOR_CONTROL_GROUP"].as<std::string>("sucker");
+
+    minOrientationTolerance = config["minOrientationTolerance"].as<double>(1.0);
+    minPositionTolerance = config["minPositionTolerance"].as<double>(0.01);
+    maxOrientationTolerance = config["maxOrientationTolerance"].as<double>(1.5);
+    maxPositionTolerance = config["maxPositionTolerance"].as<double>(0.018);
+    AllowPlanAttempt = config["AllowPlanAttempt"].as<int>(10);
+    minPlanTime = config["minPlanTime"].as<double>(2);
+    maxPlanTime = config["maxPlanTime"].as<double>(3);
     
     if(AllowPlanAttempt<1){
         RCLCPP_ERROR(this->get_logger(),"AllowPlanAttempt must be greater than 0, use default val 3");

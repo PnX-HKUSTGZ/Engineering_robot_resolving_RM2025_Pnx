@@ -44,6 +44,8 @@ find_package(moveit_msgs REQUIRED)
 find_package(command_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
+find_package(yaml-cpp REQUIRED)
+
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
 message(STATUS "SOURCES: ${SOURCES}")
@@ -71,6 +73,10 @@ ament_target_dependencies(engineering_robot_controller
   command_interfaces
   tf2_geometry_msgs
   
+)
+
+target_link_libraries(engineering_robot_controller
+  yaml-cpp::yaml-cpp
 )
 
 install(TARGETS engineering_robot_controller DESTINATION lib/${PROJECT_NAME})
