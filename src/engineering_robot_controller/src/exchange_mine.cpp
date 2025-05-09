@@ -11,9 +11,22 @@ bool Engineering_robot_Controller::robot_go_pose(const std::string & name){
     }
 
     move_group_->setNamedTarget(name);
+    move_group_->setMaxVelocityScalingFactor(1);
+    move_group_->setMaxAccelerationScalingFactor(1);
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
-    bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+    bool success=0;
+    for(int i=0;i<AllowPlanAttempt;i++){
+        RCLCPP_INFO(this->get_logger(),"robot_go_pose try %d",i);
+        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+        if(success){
+            RCLCPP_INFO(this->get_logger(),"robot_go_pose plan success!");
+            break;
+        }
+        else{
+            RCLCPP_INFO(this->get_logger(),"robot_go_pose plan fail!");
+        }
+    }
 
     if(!success){
         RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail!");
@@ -103,25 +116,46 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
 
     RCLCPP_INFO(this->get_logger(),"LoadAttachMine and LoadRedeemBox success!");
 
+    geometry_msgs::msg::Point TargetPose;
+    geometry_msgs::msg::Point TransformedTargetPose;
+    TargetPose.x=0;
+    TargetPose.y=0;
+    TargetPose.z=-0.15;
+    doPointTransform(TargetPose,TransformedTargetPose,msg);
+
 
     geometry_msgs::msg::Pose RedeemBox;
     RedeemBox.orientation=msg.transform.rotation;
-    RedeemBox.position.x=msg.transform.translation.x;
-    RedeemBox.position.y=msg.transform.translation.y;
-    RedeemBox.position.z=msg.transform.translation.z;
+    RedeemBox.position=TransformedTargetPose;
 
+    bool success=0;
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+    clear_constraints_state();
     move_group_->setPoseTarget(RedeemBox);
-    move_group_->setGoalTolerance(0.05);
-    move_group_->setGoalJointTolerance(0.05);
+    move_group_->setGoalOrientationTolerance(1);
+    move_group_->setGoalPositionTolerance(0.005);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
+    move_group_->setPlanningTime(2.5);
 
-    moveit::planning_interface::MoveGroupInterface::Plan plan;
-    bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+    for(int i=0;i<=AllowPlanAttempt;i++){
+        move_group_->setGoalOrientationTolerance(0.3+i*0.05);
+        RCLCPP_INFO(this->get_logger(),"robot_go_pose try %d, %lf",i,0.3+i*0.05);
+        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+        if(success){
+            break;
+        }
+        else{
+            RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail! try again");
+        }
+    }
+
     if(!success){
         RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail!");
         return 0;
     }
+
     try{
         move_group_->execute(plan);
     }
@@ -131,7 +165,9 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     }
     RCLCPP_INFO(this->get_logger(),"robot_go_pose success!");
 
-    clearPlanScene();
+    // clearPlanScene();
+
+    return 1;
 }
 
 }

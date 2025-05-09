@@ -169,6 +169,7 @@ double maxPositionTolerance=0.05;
 int minPlanTime=10;
 int maxPlanTime=15;
 int AllowRePlanAttempt=3;
+int AllowPlanAttempt=5;
 
 double OrientationToleranceStep=0;
 double PositionToleranceStep=0;
@@ -211,6 +212,7 @@ void clear_constraints_state();
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_get_min_sub_;
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_go_home_sub_;
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_auto_exchange_sub_;
+std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_clear_scense_sub_;
 
 bool robot_go_pose(const std::string & name);
 bool AutoExchangeMine();

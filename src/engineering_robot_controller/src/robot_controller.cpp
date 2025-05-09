@@ -70,7 +70,11 @@ void Engineering_robot_Controller::LoadParam(){
     }
     if(!this->has_parameter("maxPlanTime")){
         this->declare_parameter<int>("maxPlanTime",3);
-        RCLCPP_WARN(this->get_logger(),"maxPlanTime dosen't declare, use default val 15");
+        RCLCPP_WARN(this->get_logger(),"maxPlanTime dosen't declare, use default val 3");
+    }
+    if(!this->has_parameter("AllowPlanAttempt")){
+        this->declare_parameter<int>("AllowPlanAttempt",5);
+        RCLCPP_WARN(this->get_logger(),"AllowPlanAttempt dosen't declare, use default val 5");
     }
 
     minOrientationTolerance=this->get_parameter("minOrientationTolerance").as_double();
@@ -80,6 +84,7 @@ void Engineering_robot_Controller::LoadParam(){
     AllowRePlanAttempt=this->get_parameter("AllowRePlanAttempt").as_int();
     minPlanTime=this->get_parameter("minPlanTime").as_int();
     maxPlanTime=this->get_parameter("maxPlanTime").as_int();
+    AllowPlanAttempt=this->get_parameter("AllowPlanAttempt").as_int();
     
     if(AllowRePlanAttempt){
         OrientationToleranceStep=(maxOrientationTolerance-minOrientationTolerance)/AllowRePlanAttempt;
@@ -168,6 +173,7 @@ bool Engineering_robot_Controller::MoveitInit(){
 
 
     robot_get_min_sub_=this->create_subscription<std_msgs::msg::Bool>("/robot_trigger/get_mine",10,[this](const std_msgs::msg::Bool::ConstSharedPtr & msg){
+        (void)msg;
         if(this->robot_go_pose("get_mine")){
             RCLCPP_INFO(this->get_logger(),"robot_trigger get_mine ok!");
         }
@@ -176,6 +182,7 @@ bool Engineering_robot_Controller::MoveitInit(){
         }
     });
     robot_go_home_sub_=this->create_subscription<std_msgs::msg::Bool>("/robot_trigger/go_home",10,[this](const std_msgs::msg::Bool::ConstSharedPtr & msg){
+        (void)msg;
         if(this->robot_go_pose("home")){
             RCLCPP_INFO(this->get_logger(),"robot_trigger go_home ok!");
         }
@@ -185,12 +192,19 @@ bool Engineering_robot_Controller::MoveitInit(){
     });
 
     robot_auto_exchange_sub_=this->create_subscription<std_msgs::msg::Bool>("/robot_trigger/auto_exchange",10,[this](const std_msgs::msg::Bool::ConstSharedPtr & msg){
+        (void)msg;
         if(this->AutoExchangeMine()){
             RCLCPP_INFO(this->get_logger(),"robot_trigger auto_exchange ok!");
         }
         else{
             RCLCPP_ERROR(this->get_logger(),"robot_trigger auto_exchange fail!");
         }
+    });
+
+    robot_clear_scense_sub_=this->create_subscription<std_msgs::msg::Bool>("/robot_trigger/clear_scense",10,[this](const std_msgs::msg::Bool::ConstSharedPtr & msg){
+        (void)msg;
+        this->clearPlanScene();
+        RCLCPP_INFO(this->get_logger(),"robot_trigger clear_scense ok!");
     });
     return 1;
 
