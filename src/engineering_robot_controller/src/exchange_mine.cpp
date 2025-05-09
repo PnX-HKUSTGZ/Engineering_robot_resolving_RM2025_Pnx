@@ -116,23 +116,22 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
 
     RCLCPP_INFO(this->get_logger(),"LoadAttachMine and LoadRedeemBox success!");
 
-    geometry_msgs::msg::Point TargetPose;
-    geometry_msgs::msg::Point TransformedTargetPose;
-    TargetPose.x=0;
-    TargetPose.y=0;
-    TargetPose.z=-0.15;
-    doPointTransform(TargetPose,TransformedTargetPose,msg);
-
-
-    geometry_msgs::msg::Pose RedeemBox;
-    RedeemBox.orientation=msg.transform.rotation;
-    RedeemBox.position=TransformedTargetPose;
+    geometry_msgs::msg::Pose TargetPose;
+    geometry_msgs::msg::Pose TransformedTargetPose;
+    TargetPose.position.x=0;
+    TargetPose.position.y=0;
+    TargetPose.position.z=-0.15;
+    TargetPose.orientation.x=0;
+    TargetPose.orientation.y=0;
+    TargetPose.orientation.z=-0.7071068;
+    TargetPose.orientation.w=0.7071068;
+    doPoseTransform(TargetPose,TransformedTargetPose,msg);
 
     bool success=0;
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
     clear_constraints_state();
-    move_group_->setPoseTarget(RedeemBox);
+    move_group_->setPoseTarget(TransformedTargetPose);
     move_group_->setGoalOrientationTolerance(1);
     move_group_->setGoalPositionTolerance(0.005);
     move_group_->setMaxVelocityScalingFactor(1);

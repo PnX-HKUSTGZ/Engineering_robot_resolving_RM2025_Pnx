@@ -830,13 +830,13 @@ bool Engineering_robot_Controller::LoadAttachMine(){
 
     geometry_msgs::msg::Pose object_pose_relative_to_tf;
 
-    object_pose_relative_to_tf.position.x = -0.1;
+    object_pose_relative_to_tf.position.x = 0.1;
     object_pose_relative_to_tf.position.y = -0.1;
     object_pose_relative_to_tf.position.z = 0.0;
     object_pose_relative_to_tf.orientation.x = 0;
     object_pose_relative_to_tf.orientation.y = 0.0;
-    object_pose_relative_to_tf.orientation.z = 0.0;
-    object_pose_relative_to_tf.orientation.w = 1;
+    object_pose_relative_to_tf.orientation.z = 0.7071068;
+    object_pose_relative_to_tf.orientation.w = 0.7071068;
 
     collision_object.meshes.push_back(mesh_msg);
     collision_object.mesh_poses.push_back(object_pose_relative_to_tf);

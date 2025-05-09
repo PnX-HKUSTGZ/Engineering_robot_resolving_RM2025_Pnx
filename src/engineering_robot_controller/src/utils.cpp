@@ -106,4 +106,50 @@ void doPointTransform(
     data_out.z = point_out_tf2.z();
 }
 
+void doPoseTransform(
+    const geometry_msgs::msg::Pose &data_in,
+    geometry_msgs::msg::Pose &data_out,
+    const geometry_msgs::msg::TransformStamped &transform)
+{
+    tf2::Transform transform_tf2;
+    transform_tf2.setOrigin(tf2::Vector3(
+        transform.transform.translation.x,
+        transform.transform.translation.y,
+        transform.transform.translation.z
+    ));
+    transform_tf2.setRotation(tf2::Quaternion(
+        transform.transform.rotation.x,
+        transform.transform.rotation.y,
+        transform.transform.rotation.z,
+        transform.transform.rotation.w
+    ));
+
+    tf2::Vector3 position_in_tf2;
+    position_in_tf2.setX(data_in.position.x);
+    position_in_tf2.setY(data_in.position.y);
+    position_in_tf2.setZ(data_in.position.z);
+
+
+    tf2::Vector3 position_out_tf2 = transform_tf2 * position_in_tf2;
+
+    data_out.position.x = position_out_tf2.x();
+    data_out.position.y = position_out_tf2.y();
+    data_out.position.z = position_out_tf2.z();
+
+    tf2::Quaternion orientation_in_tf2;
+    orientation_in_tf2.setX(data_in.orientation.x);
+    orientation_in_tf2.setY(data_in.orientation.y);
+    orientation_in_tf2.setZ(data_in.orientation.z);
+    orientation_in_tf2.setW(data_in.orientation.w);
+
+    tf2::Quaternion orientation_out_tf2 = transform_tf2.getRotation() * orientation_in_tf2;
+
+    orientation_out_tf2.normalize();
+
+    data_out.orientation.x = orientation_out_tf2.x();
+    data_out.orientation.y = orientation_out_tf2.y();
+    data_out.orientation.z = orientation_out_tf2.z();
+    data_out.orientation.w = orientation_out_tf2.w();
+}
+
 }// Engineering_robot_RM2025_Pnx

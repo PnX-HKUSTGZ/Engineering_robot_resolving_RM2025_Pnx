@@ -234,6 +234,20 @@ void doPointTransform(
     const geometry_msgs::msg::TransformStamped &transform
 );
 
+/**
+ * @brief Transforms a geometry_msgs::msg::Pose by a geometry_msgs::msg::TransformStamped.
+ * Applies the translational and rotational components of the transform to the pose's
+ * position and orientation respectively.
+ *
+ * @param data_in The input pose in the source frame.
+ * @param data_out The transformed pose in the target frame.
+ * @param transform The transform from the source frame to the target frame.
+ */
+void doPoseTransform(
+    const geometry_msgs::msg::Pose &data_in,
+    geometry_msgs::msg::Pose &data_out,
+    const geometry_msgs::msg::TransformStamped &transform);
+
 } // namespace motion_planning_api
 
 #endif // Engineering_robot_RM2025_Pnx
