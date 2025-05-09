@@ -7,6 +7,7 @@ void ERHardwareInterface::computer_state_sub_callback(command_interfaces::msg::C
     state.current_state=msg->current_state;
     state.pos1_state=msg->pos1_state;
     state.pos2_state=msg->pos2_state;
+    state.pos3_state=msg->pos3_state;
     state.recognition=msg->recognition;
     set_computer_state(state);
 }
@@ -58,6 +59,7 @@ CallbackReturn ERHardwareInterface::on_init(const HardwareInfo & hardware_info){
     computer_state.current_state=0;
     computer_state.pos1_state=0;
     computer_state.pos2_state=0;
+    computer_state.pos3_state=0;
     computer_state.recognition=0;
     set_computer_state(computer_state);
 
@@ -173,12 +175,14 @@ return_type ERHardwareInterface::read(const rclcpp::Time & time, const rclcpp::D
         nowcommand.breakout=packet.breakout;
         nowcommand.is_finish=packet.is_finish;
         nowcommand.is_started=packet.is_started;
+        nowcommand.is_attach=packet.is_attach;
         nowcommand.command_time=node_->now();
 
         command_interfaces::msg::PlayerCommand msg;
         msg.breakout=nowcommand.breakout;
         msg.is_finish=nowcommand.is_finish;
         msg.is_started=nowcommand.is_started;
+        msg.is_attach=nowcommand.is_attach;
         msg.header.frame_id="/playercommand";
         msg.header.stamp=node_->now();
 
@@ -200,6 +204,7 @@ return_type ERHardwareInterface::write(const rclcpp::Time & time, const rclcpp::
     packet.current_state=current_state.current_state;
     packet.pos1_state=current_state.pos1_state;
     packet.pos2_state=current_state.pos2_state;
+    packet.pos3_state=current_state.pos3_state;
     packet.recognition=current_state.recognition;
     // RCLCPP_INFO_STREAM(logger,"write called!");
     for(int i=0;i<6;i++){

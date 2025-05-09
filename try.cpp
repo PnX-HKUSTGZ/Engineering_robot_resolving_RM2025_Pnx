@@ -1,248 +1,376 @@
-void Engineering_robot_Controller::commmand_executor(){
-    while(1){
-        // 休息一下，交出CPU
-        std::this_thread::sleep_for(33ms);
-        auto command=get_player_command();
-        // if(this->now()-command.command_time>player_commmand_time_threshold){
-        //     RCLCPP_WARN_STREAM(this->get_logger(),"play_command time out! with time :["<<command.command_time.seconds()<<","<<command.command_time.nanoseconds()<<"]");
-        //     continue;
-        // }
-        if(!command.is_started){
-            continue;
-        }
-        if(command.breakout){
-            continue;
-        }
+/*********************************************************************
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
-        auto computer_state=get_computer_state();
-        computer_state.current_state=1;
-        computer_state.recognition=REC_ING;
-        computer_state.pos1_state=0;
-        computer_state.pos2_state=0;
-        computer_state.pos3_state=0;
-        set_computer_state(computer_state);
+/* Author: Sachin Chitta, Michael Lautman */
 
-        RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe start!");
+#include <pluginlib/class_loader.hpp>
 
-        std::thread mine_exchange_pipe_thread([this](){
-            mine_exchange_pipe_state=0;
-            clearPlanScene();
-            this->mine_exchange_pipe();
-            clearPlanScene();
-            mine_exchange_pipe_state=1;
-        });
+// MoveIt
+#include <moveit/robot_model_loader/robot_model_loader.hpp>
+#include <moveit/planning_interface/planning_interface.hpp>
+#include <moveit/planning_scene/planning_scene.hpp>
+#include <moveit/kinematic_constraints/utils.hpp>
+#include <moveit_msgs/msg/display_trajectory.hpp>
+#include <moveit_msgs/msg/planning_scene.hpp>
+#include <moveit_visual_tools/moveit_visual_tools.h>
+#include <moveit/move_group_interface/move_group_interface.hpp>
 
-        while(1){
-            std::this_thread::sleep_for(33ms);
-            auto now_command=get_player_command();
-            // if(this->now()-now_command.command_time>player_commmand_time_threshold){
-            //     RCLCPP_WARN_STREAM(this->get_logger(),"play_command time out! with time :["<<command.command_time.seconds()<<","<<command.command_time.nanoseconds()<<"]");
-            //     continue;
-            // }
-            if(now_command.breakout){
-                RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe stop by player");
-                RCLCPP_INFO(this->get_logger(),"try to stop mine_exchange_pipe");
-                pthread_cancel(mine_exchange_pipe_thread.native_handle());
-                clearPlanScene();
-                mine_exchange_pipe_thread.join();
-                RCLCPP_INFO(this->get_logger(),"stop mine_exchange_pipe!");
-                break;
-            }
-            if(mine_exchange_pipe_state){
-                mine_exchange_pipe_thread.join();
-                RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe finish!");
-                break;
-            }
-        }
-        
-        computer_state.current_state=0;
-        computer_state.recognition=0;
-        computer_state.pos1_state=0;
-        computer_state.pos2_state=0;
-        computer_state.pos3_state=0;
-        set_computer_state(computer_state);
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("motion_planning_api_tutorial");
 
-        RCLCPP_INFO(this->get_logger(),"this command exec ok!");
+int main(int argc, char** argv)
+{
+  rclcpp::init(argc, argv);
+  rclcpp::NodeOptions node_options;
+  node_options.automatically_declare_parameters_from_overrides(true);
+  std::shared_ptr<rclcpp::Node> motion_planning_api_tutorial_node =
+      rclcpp::Node::make_shared("motion_planning_api_tutorial", node_options);
 
-    }
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(motion_planning_api_tutorial_node);
+  std::thread([&executor]() { executor.spin(); }).detach();
+
+  // BEGIN_TUTORIAL
+  // Start
+  // ^^^^^
+  // Setting up to start using a planner is pretty easy. Planners are
+  // setup as plugins in MoveIt and you can use the ROS pluginlib
+  // interface to load any planner that you want to use. Before we can
+  // load the planner, we need two objects, a RobotModel and a
+  // PlanningScene. We will start by instantiating a
+  // :moveit_codedir:`RobotModelLoader<moveit_ros/planning/robot_model_loader/include/moveit/robot_model_loader/robot_model_loader.hpp>`
+  // object, which will look up the robot description on the ROS
+  // parameter server and construct a
+  // :moveit_codedir:`RobotModel<moveit_core/robot_model/include/moveit/robot_model/robot_model.hpp>`
+  // for us to use.
+  const std::string PLANNING_GROUP = "panda_arm";
+  robot_model_loader::RobotModelLoader robot_model_loader(motion_planning_api_tutorial_node, "robot_description");
+  const moveit::core::RobotModelPtr& robot_model = robot_model_loader.getModel();
+  /* Create a RobotState and JointModelGroup to keep track of the current robot pose and planning group*/
+  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(robot_model));
+  const moveit::core::JointModelGroup* joint_model_group = robot_state->getJointModelGroup(PLANNING_GROUP);
+
+  // Using the
+  // :moveit_codedir:`RobotModel<moveit_core/robot_model/include/moveit/robot_model/robot_model.hpp>`,
+  // we can construct a
+  // :moveit_codedir:`PlanningScene<moveit_core/planning_scene/include/moveit/planning_scene/planning_scene.hpp>`
+  // that maintains the state of the world (including the robot).
+  planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
+
+  // Configure a valid robot state
+  planning_scene->getCurrentStateNonConst().setToDefaultValues(joint_model_group, "ready");
+
+  // We will now construct a loader to load a planner, by name.
+  // Note that we are using the ROS pluginlib library here.
+  std::unique_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader;
+  planning_interface::PlannerManagerPtr planner_instance;
+  std::vector<std::string> planner_plugin_names;
+
+  // We will get the name of planning plugin we want to load
+  // from the ROS parameter server, and then load the planner
+  // making sure to catch all exceptions.
+  if (!motion_planning_api_tutorial_node->get_parameter("ompl.planning_plugins", planner_plugin_names))
+    RCLCPP_FATAL(LOGGER, "Could not find planner plugin names");
+  try
+  {
+    planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>(
+        "moveit_core", "planning_interface::PlannerManager"));
+  }
+  catch (pluginlib::PluginlibException& ex)
+  {
+    RCLCPP_FATAL(LOGGER, "Exception while creating planning plugin loader %s", ex.what());
+  }
+
+  if (planner_plugin_names.empty())
+  {
+    RCLCPP_ERROR(LOGGER,
+                 "No planner plugins defined. Please make sure that the planning_plugins parameter is not empty.");
+    return -1;
+  }
+
+  const auto& planner_name = planner_plugin_names.at(0);
+  try
+  {
+    planner_instance.reset(planner_plugin_loader->createUnmanagedInstance(planner_name));
+    if (!planner_instance->initialize(robot_model, motion_planning_api_tutorial_node,
+                                      motion_planning_api_tutorial_node->get_namespace()))
+      RCLCPP_FATAL(LOGGER, "Could not initialize planner instance");
+    RCLCPP_INFO(LOGGER, "Using planning interface '%s'", planner_instance->getDescription().c_str());
+  }
+  catch (pluginlib::PluginlibException& ex)
+  {
+    const std::vector<std::string>& classes = planner_plugin_loader->getDeclaredClasses();
+    std::stringstream ss;
+    for (const auto& cls : classes)
+      ss << cls << " ";
+    RCLCPP_ERROR(LOGGER, "Exception while loading planner '%s': %s\nAvailable plugins: %s", planner_name.c_str(),
+                 ex.what(), ss.str().c_str());
+  }
+
+  moveit::planning_interface::MoveGroupInterface move_group(motion_planning_api_tutorial_node, PLANNING_GROUP);
+
+  // Visualization
+  // ^^^^^^^^^^^^^
+  // The package MoveItVisualTools provides many capabilities for visualizing objects, robots,
+  // and trajectories in RViz as well as debugging tools such as step-by-step introspection of a script.
+  namespace rvt = rviz_visual_tools;
+  moveit_visual_tools::MoveItVisualTools visual_tools(motion_planning_api_tutorial_node, "panda_link0",
+                                                      "move_group_tutorial", move_group.getRobotModel());
+  visual_tools.enableBatchPublishing();
+  visual_tools.deleteAllMarkers();  // clear all old markers
+  visual_tools.trigger();
+
+  /* Remote control is an introspection tool that allows users to step through a high level script
+     via buttons and keyboard shortcuts in RViz */
+  visual_tools.loadRemoteControl();
+
+  /* RViz provides many types of markers, in this demo we will use text, cylinders, and spheres*/
+  Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
+  text_pose.translation().z() = 1.75;
+  visual_tools.publishText(text_pose, "Motion Planning API Demo", rvt::WHITE, rvt::XLARGE);
+
+  /* Batch publishing is used to reduce the number of messages being sent to RViz for large visualizations */
+  visual_tools.trigger();
+
+  /* We can also use visual_tools to wait for user input */
+  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to start the demo");
+
+  // Pose Goal
+  // ^^^^^^^^^
+  // We will now create a motion plan request for the arm of the Panda
+  // specifying the desired pose of the end-effector as input.
+  visual_tools.trigger();
+  planning_interface::MotionPlanRequest req;
+  planning_interface::MotionPlanResponse res;
+  geometry_msgs::msg::PoseStamped pose;
+  pose.header.frame_id = "panda_link0";
+  pose.pose.position.x = 0.3;
+  pose.pose.position.y = 0.4;
+  pose.pose.position.z = 0.75;
+  pose.pose.orientation.w = 1.0;
+
+  // A tolerance of 0.01 m is specified in position
+  // and 0.01 radians in orientation
+  std::vector<double> tolerance_pose(3, 0.01);
+  std::vector<double> tolerance_angle(3, 0.01);
+
+  // We will create the request as a constraint using a helper function available
+  // from the
+  // :moveit_codedir:`kinematic_constraints<moveit_core/kinematic_constraints/include/moveit/kinematic_constraints/kinematic_constraint.hpp>`
+  // package.
+  moveit_msgs::msg::Constraints pose_goal =
+      kinematic_constraints::constructGoalConstraints("panda_link8", pose, tolerance_pose, tolerance_angle);
+
+  req.group_name = PLANNING_GROUP;
+  req.goal_constraints.push_back(pose_goal);
+
+  // Define workspace bounds
+  req.workspace_parameters.min_corner.x = req.workspace_parameters.min_corner.y =
+      req.workspace_parameters.min_corner.z = -5.0;
+  req.workspace_parameters.max_corner.x = req.workspace_parameters.max_corner.y =
+      req.workspace_parameters.max_corner.z = 5.0;
+
+  // We now construct a planning context that encapsulate the scene,
+  // the request and the response. We call the planner using this
+  // planning context
+  planning_interface::PlanningContextPtr context =
+      planner_instance->getPlanningContext(planning_scene, req, res.error_code);
+
+  if (!context)
+  {
+    RCLCPP_ERROR(LOGGER, "Failed to create planning context");
+    return -1;
+  }
+  context->solve(res);
+  if (res.error_code.val != res.error_code.SUCCESS)
+  {
+    RCLCPP_ERROR(LOGGER, "Could not compute plan successfully");
+    return -1;
+  }
+
+  // Visualize the result
+  // ^^^^^^^^^^^^^^^^^^^^
+  std::shared_ptr<rclcpp::Publisher<moveit_msgs::msg::DisplayTrajectory>> display_publisher =
+      motion_planning_api_tutorial_node->create_publisher<moveit_msgs::msg::DisplayTrajectory>("/display_planned_path",
+                                                                                               1);
+  moveit_msgs::msg::DisplayTrajectory display_trajectory;
+
+  /* Visualize the trajectory */
+  moveit_msgs::msg::MotionPlanResponse response;
+  res.getMessage(response);
+
+  display_trajectory.trajectory_start = response.trajectory_start;
+  display_trajectory.trajectory.push_back(response.trajectory);
+  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+  visual_tools.trigger();
+  display_publisher->publish(display_trajectory);
+
+  /* Set the state in the planning scene to the final state of the last plan */
+  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
+  planning_scene->setCurrentState(*robot_state.get());
+
+  // Display the goal state
+  visual_tools.publishAxisLabeled(pose.pose, "goal_1");
+  visual_tools.publishText(text_pose, "Pose Goal (1)", rvt::WHITE, rvt::XLARGE);
+  visual_tools.trigger();
+
+  /* We can also use visual_tools to wait for user input */
+  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+  // Joint Space Goals
+  // ^^^^^^^^^^^^^^^^^
+  // Now, setup a joint space goal
+  moveit::core::RobotState goal_state(robot_model);
+  std::vector<double> joint_values = { -1.0, 0.7, 0.7, -1.5, -0.7, 2.0, 0.0 };
+  goal_state.setJointGroupPositions(joint_model_group, joint_values);
+  moveit_msgs::msg::Constraints joint_goal =
+      kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
+  req.goal_constraints.clear();
+  req.goal_constraints.push_back(joint_goal);
+
+  // Call the planner and visualize the trajectory
+  /* Re-construct the planning context */
+  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code);
+  /* Call the Planner */
+  context->solve(res);
+  /* Check that the planning was successful */
+  if (res.error_code.val != res.error_code.SUCCESS)
+  {
+    RCLCPP_ERROR(LOGGER, "Could not compute plan successfully");
+    return -1;
+  }
+  /* Visualize the trajectory */
+  res.getMessage(response);
+  display_trajectory.trajectory.push_back(response.trajectory);
+
+  /* Now you should see two planned trajectories in series*/
+  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+  visual_tools.trigger();
+  display_publisher->publish(display_trajectory);
+
+  /* We will add more goals. But first, set the state in the planning
+     scene to the final state of the last plan */
+  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
+  planning_scene->setCurrentState(*robot_state.get());
+
+  // Display the goal state
+  visual_tools.publishAxisLabeled(pose.pose, "goal_2");
+  visual_tools.publishText(text_pose, "Joint Space Goal (2)", rvt::WHITE, rvt::XLARGE);
+  visual_tools.trigger();
+
+  /* Wait for user input */
+  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+  /* Now, we go back to the first goal to prepare for orientation constrained planning */
+  req.goal_constraints.clear();
+  req.goal_constraints.push_back(pose_goal);
+  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code);
+  context->solve(res);
+  res.getMessage(response);
+
+  display_trajectory.trajectory.push_back(response.trajectory);
+  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+  visual_tools.trigger();
+  display_publisher->publish(display_trajectory);
+
+  /* Set the state in the planning scene to the final state of the last plan */
+  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
+  planning_scene->setCurrentState(*robot_state.get());
+
+  // Display the goal state
+  visual_tools.trigger();
+
+  /* Wait for user input */
+  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+  // Adding Path Constraints
+  // ^^^^^^^^^^^^^^^^^^^^^^^
+  // Let's add a new pose goal again. This time we will also add a path constraint to the motion.
+  /* Let's create a new pose goal */
+
+  pose.pose.position.x = 0.32;
+  pose.pose.position.y = -0.25;
+  pose.pose.position.z = 0.65;
+  pose.pose.orientation.w = 1.0;
+  moveit_msgs::msg::Constraints pose_goal_2 =
+      kinematic_constraints::constructGoalConstraints("panda_link8", pose, tolerance_pose, tolerance_angle);
+
+  /* Now, let's try to move to this new pose goal*/
+  req.goal_constraints.clear();
+  req.goal_constraints.push_back(pose_goal_2);
+
+  /* But, let's impose a path constraint on the motion.
+     Here, we are asking for the end-effector to stay level*/
+  geometry_msgs::msg::QuaternionStamped quaternion;
+  quaternion.header.frame_id = "panda_link0";
+  req.path_constraints = kinematic_constraints::constructGoalConstraints("panda_link8", quaternion);
+
+  // Imposing path constraints requires the planner to reason in the space of possible positions of the end-effector
+  // (the workspace of the robot)
+  // because of this, we need to specify a bound for the allowed planning volume as well;
+  // Note: a default bound is automatically filled by the WorkspaceBounds request adapter (part of the OMPL pipeline,
+  // but that is not being used in this example).
+  // We use a bound that definitely includes the reachable space for the arm. This is fine because sampling is not done
+  // in this volume
+  // when planning for the arm; the bounds are only used to determine if the sampled configurations are valid.
+  req.workspace_parameters.min_corner.x = req.workspace_parameters.min_corner.y =
+      req.workspace_parameters.min_corner.z = -2.0;
+  req.workspace_parameters.max_corner.x = req.workspace_parameters.max_corner.y =
+      req.workspace_parameters.max_corner.z = 2.0;
+
+  // Call the planner and visualize all the plans created so far.
+  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code);
+  context->solve(res);
+  res.getMessage(response);
+  display_trajectory.trajectory.push_back(response.trajectory);
+  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+  visual_tools.trigger();
+  display_publisher->publish(display_trajectory);
+
+  /* Set the state in the planning scene to the final state of the last plan */
+  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
+  planning_scene->setCurrentState(*robot_state.get());
+
+  // Display the goal state
+  visual_tools.publishAxisLabeled(pose.pose, "goal_3");
+  visual_tools.publishText(text_pose, "Orientation Constrained Motion Plan (3)", rvt::WHITE, rvt::XLARGE);
+  visual_tools.trigger();
+
+  // END_TUTORIAL
+  /* Wait for user input */
+  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to exit the demo");
+  planner_instance.reset();
+
+  rclcpp::shutdown();
+  return 0;
 }
-
-void Engineering_robot_Controller::mine_exchange_pipe(){
-
-    auto computer_state=get_computer_state();
-
-    //tf2初始化==============================================================
-    computer_state.current_state=1;
-    computer_state.recognition=REC_ING;
-    set_computer_state(computer_state);
-
-    geometry_msgs::msg::TransformStamped msg=fix_RedeemBox_pos();
-
-    bool LoadRedeemBoxcheck=LoadRedeemBox(msg);
-    if(!LoadRedeemBoxcheck){
-        RCLCPP_ERROR(this->get_logger(),"LoadRedeemBox failed! pipe end!");
-        return;
-    }
-    bool LoadAttachMineCheck=LoadAttachMine();
-    if(!LoadAttachMineCheck){
-        RCLCPP_ERROR(this->get_logger(),"LoadAttachMine failed! pipe end!");
-        return;
-    }
-
-    IsObjectInScene("Mine");
-    RCLCPP_INFO(this->get_logger(),"6");
-
-    //tf2 初始化完成==============================================================
-    computer_state.current_state=1;
-    computer_state.recognition=REC_SUCCESS;
-    set_computer_state(computer_state);
-
-    RCLCPP_INFO(this->get_logger(),"mine_exchange_pipe tf2 init ok!");
-
-    moveit::planning_interface::MoveGroupInterface::Plan plan;
-
-    std::string ee_link=move_group_->getEndEffectorLink();
-    std::string reference_frame=move_group_->getPlanningFrame();
-
-    RCLCPP_INFO_STREAM(this->get_logger(),"EndEffector link name :"<<move_group_->getEndEffectorLink());
-    RCLCPP_INFO_STREAM(this->get_logger(),"Planning frame name :"<<move_group_->getPlanningFrame());
-
-    IsObjectInScene("Mine");
-    RCLCPP_INFO(this->get_logger(),"5");
-
-{    //第一阶段 ====================================================================
-    clear_constraints_state();
-    computer_state.current_state=2;
-    computer_state.pos1_state=PLANNING;
-    set_computer_state(computer_state);
-
-    moveit_msgs::msg::Constraints state1_constraints;
-    state1_constraints.name="state one constraints";
-
-    IsObjectInScene("Mine");
-    RCLCPP_INFO(this->get_logger(),"3");
-
-    geometry_msgs::msg::Point RedeemBoxstate1point;
-    geometry_msgs::msg::Point transformedRedeemBoxstate1point;
-    RedeemBoxstate1point.x=0;
-    RedeemBoxstate1point.y=0;
-    RedeemBoxstate1point.z=-0.210;
-    doPointTransform(RedeemBoxstate1point,transformedRedeemBoxstate1point,msg);
-    RCLCPP_INFO_STREAM(this->get_logger(),"target one pose ("<<transformedRedeemBoxstate1point.x<<","<<transformedRedeemBoxstate1point.y<<","<<transformedRedeemBoxstate1point.z<<")");
-
-
-    moveit_msgs::msg::PositionConstraint pcon;
-    pcon.header.frame_id=reference_frame;
-    pcon.header.stamp=this->now();
-    pcon.link_name=ee_link;
-    pcon.target_point_offset.x=0;
-    pcon.target_point_offset.y=0;
-    pcon.target_point_offset.z=0;
-    pcon.weight=1.0;
-
-    shape_msgs::msg::SolidPrimitive primitive;
-    primitive.type = shape_msgs::msg::SolidPrimitive::BOX;
-    primitive.dimensions.resize(3);
-    primitive.dimensions[0] = 0.005; // Tolerance in x (meters)
-    primitive.dimensions[1] = 0.005; // Tolerance in y
-    primitive.dimensions[2] = 0.005; // Tolerance in z  
-
-    geometry_msgs::msg::Pose primitive_pose;
-    // Set the target position (example values - replace with your desired position)
-    primitive_pose.position.x = transformedRedeemBoxstate1point.x;
-    primitive_pose.position.y = transformedRedeemBoxstate1point.y;
-    primitive_pose.position.z = transformedRedeemBoxstate1point.z;
-    // Orientation is usually identity for a box center
-    primitive_pose.orientation=msg.transform.rotation;
-
-    pcon.constraint_region.primitives.push_back(primitive);
-    pcon.constraint_region.primitive_poses.push_back(primitive_pose);
-    state1_constraints.position_constraints.push_back(pcon);
-
-    moveit_msgs::msg::OrientationConstraint ocon;
-    ocon.header.frame_id = reference_frame; // Constraint in the planning frame
-    ocon.header.stamp = this->now();
-    ocon.link_name = ee_link;
-    ocon.weight = 1.0;
-
-    ocon.orientation=msg.transform.rotation;
-
-    ocon.absolute_x_axis_tolerance=0.01;
-    ocon.absolute_y_axis_tolerance=M_PI;
-    ocon.absolute_z_axis_tolerance=0.01;
-
-    state1_constraints.orientation_constraints.push_back(ocon);
-
-
-    // move_group_->setPathConstraints(state1_constraints);
-    
-    move_group_->setPoseTarget(primitive_pose);
-    move_group_->setGoalOrientationTolerance(minOrientationTolerance);
-    move_group_->setGoalPositionTolerance(minPositionTolerance);
-    move_group_->setPlanningTime(minPlanTime);
-    move_group_->setMaxVelocityScalingFactor(1);
-    move_group_->setMaxAccelerationScalingFactor(1);
-
-    bool success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
-
-    for(int i=1;i<=AllowRePlanAttempt&&(!success);i++){
-        RCLCPP_WARN(this->get_logger(),"plan failed! try again!");
-        clear_constraints_state();
-        move_group_->setPoseTarget(primitive_pose);
-        move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*OrientationToleranceStep);
-        move_group_->setGoalPositionTolerance(minPositionTolerance+i*PositionToleranceStep);
-        move_group_->setPlanningTime(minPlanTime+i*PlanTimeStep);
-        move_group_->setMaxVelocityScalingFactor(1);
-        move_group_->setMaxAccelerationScalingFactor(1);
-        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
-    }
-
-    if(success){
-        computer_state.current_state=2;
-        computer_state.pos1_state=MOVING;
-        set_computer_state(computer_state);
-        RCLCPP_INFO(this->get_logger(),"state one constract ok!");
-    }
-    else{
-        computer_state.current_state=2;
-        computer_state.pos1_state=FAILED;
-        set_computer_state(computer_state);
-        RCLCPP_ERROR(this->get_logger(),"state one constract failed!");
-        return;
-    }
-
-    IsObjectInScene("Mine");
-    RCLCPP_INFO(this->get_logger(),"2");
-
-    visual_tools_->deleteAllMarkers();
-    visual_tools_->publishTrajectoryLine(plan.trajectory_, arm_model_group);
-
-    try{
-        RCLCPP_INFO(this->get_logger(),"state one executing.....");
-        move_group_->setMaxAccelerationScalingFactor(1);
-        auto execute_res=move_group_->execute(plan);
-        if(execute_res==moveit::core::MoveItErrorCode::SUCCESS){
-            RCLCPP_INFO(this->get_logger(),"execute finish!");
-        }
-        else if(execute_res==moveit::core::MoveItErrorCode::TIMED_OUT){
-            RCLCPP_WARN(this->get_logger(),"execute time out");
-        }
-        else{
-            return;
-        }
-    }
-    catch(const std::exception & e){
-        RCLCPP_INFO(this->get_logger(),"state_one move failed! with %s",e.what());
-        computer_state.current_state=2;
-        computer_state.pos1_state=FAILED;
-        set_computer_state(computer_state);
-        return;
-    }
-    IsObjectInScene("Mine");
-    RCLCPP_INFO(this->get_logger(),"1");
-    RCLCPP_INFO(this->get_logger(),"state_one move OK!");
-    computer_state.current_state=2;
-    computer_state.pos1_state=FINISH;
-    set_computer_state(computer_state);
-
-}    //第一阶段完成 ====================================================================

@@ -244,22 +244,86 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
-{// state 1
-    set_computer_state(STATE_ONE,PLANNING);
-
     auto msg=fix_RedeemBox_pos();
     bool LoadRedeemBoxcheck=LoadRedeemBox();
     if(!LoadRedeemBoxcheck){
         RCLCPP_ERROR(this->get_logger(),"LoadRedeemBox fail! pipe end!");
         return;
     }
+    else {
+        RCLCPP_INFO(this->get_logger(),"LoadRedeemBox success!");
+    }
+
+{// state 1
+
+    set_computer_state(STATE_ONE,PLANNING);
+
+    move_group_->setNamedTarget("get_mine");
+    move_group_->setMaxVelocityScalingFactor(1);
+    move_group_->setMaxAccelerationScalingFactor(1);
+
+    bool success=0;
+    for(int i=0;i<AllowPlanAttempt;i++){
+        RCLCPP_INFO(this->get_logger(),"state 1 plan try %d",i);
+        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+        if(success){
+            RCLCPP_INFO(this->get_logger(),"state 1 plan plan success!");
+            break;
+        }
+        else{
+            RCLCPP_INFO(this->get_logger(),"state 1 plan plan fail!");
+        }
+    }
+
+    if(!success){
+        set_computer_state(STATE_ERROR,0);
+        RCLCPP_ERROR(this->get_logger(),"state 1 plan fail!");
+        return;
+    }
+    else{
+        set_computer_state(STATE_ONE,MOVING);
+        RCLCPP_INFO(this->get_logger(),"state 1 plan success!");
+    }
+
+    try{
+        move_group_->execute(plan);
+    }
+    catch(const std::exception & e){
+        set_computer_state(STATE_ERROR,0);
+        RCLCPP_INFO(this->get_logger(),"state 1 move failed! with %s",e.what());
+        return;
+    }
+    RCLCPP_INFO(this->get_logger(),"state 1 move success!");
+    set_computer_state(STATE_ONE,FINISH);
+
+}
+
+{// state 1 waiting for player
+    RCLCPP_INFO(this->get_logger(),"waiting player attach ok command....");
+    while(1){
+        auto player_command=get_player_command();
+        if(player_command.is_attach){
+            RCLCPP_INFO(this->get_logger(),"get player command , attach ok!");
+            break;
+        }
+        std::this_thread::sleep_for(20ms);
+    }
+
+    set_computer_state(STATE_TWO,PLANNING);
+
     bool LoadAttachMineCheck=LoadAttachMine();
     if(!LoadAttachMineCheck){
         RCLCPP_ERROR(this->get_logger(),"LoadAttachMine failed! pipe end!");
         return;
     }
+    else {
+        RCLCPP_INFO(this->get_logger(),"LoadAttachMine success!");
+    }
 
-    RCLCPP_INFO(this->get_logger(),"LoadAttachMine and LoadRedeemBox success!");
+}
+
+{// state 2
+    set_computer_state(STATE_TWO,PLANNING);
 
     geometry_msgs::msg::Pose TargetPose;
     geometry_msgs::msg::Pose TransformedTargetPose;
@@ -283,40 +347,40 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     move_group_->setMaxAccelerationScalingFactor(1);
     move_group_->setPlanningTime(minPlanTime);
 
-    for(int i=0;i<=AllowPlanAttempt;i++){
+    for(int i=0;i<AllowPlanAttempt;i++){
         move_group_->setGoalPositionTolerance(minPositionTolerance+i*PositionToleranceStep);
-        move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*PositionToleranceStep);
-        RCLCPP_INFO(this->get_logger(),"state one plane try %d, pose %lf",i,minPositionTolerance+i*PositionToleranceStep);
-        RCLCPP_INFO(this->get_logger(),"state one plane try %d, rotate %lf",i,minOrientationTolerance+i*PositionToleranceStep);
+        move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*OrientationToleranceStep);
+        RCLCPP_INFO(this->get_logger(),"state 2 plane try %d, pose %lf",i,minPositionTolerance+i*PositionToleranceStep);
+        RCLCPP_INFO(this->get_logger(),"state 2 plane try %d, rotate %lf",i,minOrientationTolerance+i*OrientationToleranceStep);
         success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
         if(success){
             break;
         }
         else{
-            RCLCPP_ERROR(this->get_logger(),"state_one plan fail! try again");
+            RCLCPP_ERROR(this->get_logger(),"state 2 plan fail! try again");
         }
     }
 
     if(!success){
-        set_computer_state(STATE_ERROR,STATE_ERROR);
-        RCLCPP_ERROR(this->get_logger(),"state_one plan fail!");
+        set_computer_state(STATE_ERROR,0);
+        RCLCPP_ERROR(this->get_logger(),"state 2 plan fail!");
         return;
     }
     else{
-        set_computer_state(STATE_ONE,MOVING);
-        RCLCPP_INFO(this->get_logger(),"state_one plan success!");
+        set_computer_state(STATE_TWO,MOVING);
+        RCLCPP_INFO(this->get_logger(),"state 2 plan success!");
     }
 
     try{
         move_group_->execute(plan);
     }
     catch(const std::exception & e){
-        set_computer_state(STATE_ERROR,STATE_ERROR);
-        RCLCPP_INFO(this->get_logger(),"state_one move failed! with %s",e.what());
+        set_computer_state(STATE_ERROR,0);
+        RCLCPP_INFO(this->get_logger(),"state 2 move failed! with %s",e.what());
         return ;
     }
-    RCLCPP_INFO(this->get_logger(),"state_one move success!");
-    set_computer_state(STATE_ONE,FINISH);
+    RCLCPP_INFO(this->get_logger(),"state 2 move success!");
+    set_computer_state(STATE_TWO,FINISH);
 
 }
 
@@ -331,11 +395,11 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
         }
         std::this_thread::sleep_for(20ms);
     }
-    set_computer_state(STATE_TWO,PLANNING);
+    set_computer_state(STATE_THREE,PLANNING);
 }
 
-{// state 2
-    set_computer_state(STATE_TWO,PLANNING);
+{// state 3
+    set_computer_state(STATE_THREE,PLANNING);
     try{
         move_group_->detachObject("Mine");
     }
@@ -350,37 +414,37 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     bool success=0;
     for(int i=0;i<AllowPlanAttempt;i++){
-        RCLCPP_INFO(this->get_logger(),"state 2 plan try %d",i);
+        RCLCPP_INFO(this->get_logger(),"state 3 plan try %d",i);
         success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
         if(success){
-            RCLCPP_INFO(this->get_logger(),"state 2 plan plan success!");
+            RCLCPP_INFO(this->get_logger(),"state 3 plan plan success!");
             break;
         }
         else{
-            RCLCPP_INFO(this->get_logger(),"state 2 plan plan fail!");
+            RCLCPP_INFO(this->get_logger(),"state 3 plan plan fail!");
         }
     }
 
     if(!success){
-        set_computer_state(STATE_ERROR,STATE_ERROR);
-        RCLCPP_ERROR(this->get_logger(),"state 2 plan fail!");
+        set_computer_state(STATE_ERROR,0);
+        RCLCPP_ERROR(this->get_logger(),"state 3 plan fail!");
         return;
     }
     else{
-        set_computer_state(STATE_TWO,MOVING);
-        RCLCPP_INFO(this->get_logger(),"state 2 plan success!");
+        set_computer_state(STATE_THREE,MOVING);
+        RCLCPP_INFO(this->get_logger(),"state 3 plan success!");
     }
 
     try{
         move_group_->execute(plan);
     }
     catch(const std::exception & e){
-        set_computer_state(STATE_ERROR,STATE_ERROR);
-        RCLCPP_INFO(this->get_logger(),"state 2 move failed! with %s",e.what());
+        set_computer_state(STATE_ERROR,0);
+        RCLCPP_INFO(this->get_logger(),"state 3 move failed! with %s",e.what());
         return;
     }
-    RCLCPP_INFO(this->get_logger(),"state 2 move success!");
-    set_computer_state(STATE_TWO,FINISH);
+    RCLCPP_INFO(this->get_logger(),"state 3 move success!");
+    set_computer_state(STATE_THREE,FINISH);
 
 }
 

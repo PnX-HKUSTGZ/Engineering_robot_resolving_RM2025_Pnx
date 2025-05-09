@@ -28,6 +28,7 @@ struct PlayerCommandContent{
     rclcpp::Time command_time=rclcpp::Time(0,0);
     bool is_started=0;
     bool is_finish=0;
+    bool is_attach=0;
     bool breakout=0;
 };
 
@@ -36,6 +37,7 @@ struct ComputerState{
     uint8_t recognition:2;
     uint8_t pos1_state:2;
     uint8_t pos2_state:2;
+    uint8_t pos3_state:2;
 };
 
 class ERHardwareInterface : public hardware_interface::SystemInterface{

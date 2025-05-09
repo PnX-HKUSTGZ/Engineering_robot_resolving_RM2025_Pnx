@@ -69,6 +69,8 @@
 #include <moveit_msgs/msg/object_color.h>
 #include <std_msgs/msg/color_rgba.h>
 
+#include "multithread_solove.hpp"
+
 #ifndef MOTION_PLANNING_API_NODE_HPP
 #define MOTION_PLANNING_API_NODE_HPP
 
@@ -76,7 +78,8 @@
 
 #define STATE_ONE 1
 #define STATE_TWO 2
-#define STATE_ERROR 3
+#define STATE_THREE 3
+#define STATE_ERROR 4
 #define STATE_WAIT 0
 
 #define FINISH 2
@@ -100,6 +103,7 @@ using namespace std::chrono_literals;
 struct PlayerCommandContent{
     rclcpp::Time command_time=rclcpp::Time(0,0);
     bool is_started=0;
+    bool is_attach=0;
     bool is_finish=0;
     bool breakout=0;
 };
@@ -109,6 +113,7 @@ struct ComputerState{
     uint8_t recognition:2;
     uint8_t pos1_state:2;
     uint8_t pos2_state:2;
+    uint8_t pos3_state:2;
 };
 
 class Engineering_robot_Controller: public rclcpp::Node{

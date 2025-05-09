@@ -1,11 +1,24 @@
 engineering_robot_controller:
     # Controller manager configuration
-    minOrientationTolerance: 0.2
+    minOrientationTolerance: 0.766667
     minPositionTolerance: 0.04
-    maxOrientationTolerance: 0.3
+    maxOrientationTolerance: 0.8
     maxPositionTolerance: 0.05
     AllowPlanAttempt: 4
-    minPlanTime: 5
-    maxPlanTime: 5
+    minPlanTime: 8
+    maxPlanTime: 8
     ARM_CONTROL_GROUP: "arm"
     END_EFFECTOR_CONTROL_GROUP : "sucker"
+
+
+# engineering_robot_controller:
+#     # Controller manager configuration
+#     minOrientationTolerance: 0.2
+#     minPositionTolerance: 0.043
+#     maxOrientationTolerance: 0.3
+#     maxPositionTolerance: 0.05
+#     AllowPlanAttempt: 4
+#     minPlanTime: 5
+#     maxPlanTime: 5
+#     ARM_CONTROL_GROUP: "arm"
+#     END_EFFECTOR_CONTROL_GROUP : "sucker"
