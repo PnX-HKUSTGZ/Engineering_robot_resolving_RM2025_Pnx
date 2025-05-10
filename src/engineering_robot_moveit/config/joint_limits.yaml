@@ -17,24 +17,24 @@ joint_limits:
     has_velocity_limits: true
     max_velocity: 8.5
     has_acceleration_limits: true
-    max_acceleration: 2.5
+    max_acceleration: 4.0
   J3J:
     has_velocity_limits: true
     max_velocity: 8.5
     has_acceleration_limits: true
-    max_acceleration: 2.5
+    max_acceleration: 4.0
   J4J:
     has_velocity_limits: true
     max_velocity: 8.5
     has_acceleration_limits: true
-    max_acceleration: 2.5
+    max_acceleration: 4.0
   J5_xJ:
     has_velocity_limits: true
     max_velocity: 8.5
     has_acceleration_limits: true
-    max_acceleration: 2.5
+    max_acceleration: 4.0
   J5_zJ:
     has_velocity_limits: true
     max_velocity: 8.5
     has_acceleration_limits: true
-    max_acceleration: 2.5
+    max_acceleration: 4.0
