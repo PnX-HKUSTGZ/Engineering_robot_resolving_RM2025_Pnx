@@ -37,14 +37,14 @@
 #include <pluginlib/class_loader.hpp>
 
 // MoveIt
-#include <moveit/robot_model_loader/robot_model_loader.hpp>
-#include <moveit/planning_interface/planning_interface.hpp>
-#include <moveit/planning_scene/planning_scene.hpp>
-#include <moveit/kinematic_constraints/utils.hpp>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/planning_interface/planning_interface.h>
+#include <moveit/planning_scene/planning_scene.h>
+#include <moveit/kinematic_constraints/utils.h>
 #include <moveit_msgs/msg/display_trajectory.hpp>
-#include <moveit_msgs/msg/planning_scene.hpp>
+#include <moveit_msgs/msg/planning_scene.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
-#include <moveit/move_group_interface/move_group_interface.hpp>
+#include <moveit/move_group_interface/move_group_interface.h>
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("motion_planning_api_tutorial");
 
@@ -68,10 +68,10 @@ int main(int argc, char** argv)
   // interface to load any planner that you want to use. Before we can
   // load the planner, we need two objects, a RobotModel and a
   // PlanningScene. We will start by instantiating a
-  // :moveit_codedir:`RobotModelLoader<moveit_ros/planning/robot_model_loader/include/moveit/robot_model_loader/robot_model_loader.hpp>`
+  // :moveit_codedir:`RobotModelLoader<moveit_ros/planning/robot_model_loader/include/moveit/robot_model_loader/robot_model_loader.h>`
   // object, which will look up the robot description on the ROS
   // parameter server and construct a
-  // :moveit_codedir:`RobotModel<moveit_core/robot_model/include/moveit/robot_model/robot_model.hpp>`
+  // :moveit_codedir:`RobotModel<moveit_core/robot_model/include/moveit/robot_model/robot_model.h>`
   // for us to use.
   const std::string PLANNING_GROUP = "panda_arm";
   robot_model_loader::RobotModelLoader robot_model_loader(motion_planning_api_tutorial_node, "robot_description");
@@ -81,9 +81,9 @@ int main(int argc, char** argv)
   const moveit::core::JointModelGroup* joint_model_group = robot_state->getJointModelGroup(PLANNING_GROUP);
 
   // Using the
-  // :moveit_codedir:`RobotModel<moveit_core/robot_model/include/moveit/robot_model/robot_model.hpp>`,
+  // :moveit_codedir:`RobotModel<moveit_core/robot_model/include/moveit/robot_model/robot_model.h>`,
   // we can construct a
-  // :moveit_codedir:`PlanningScene<moveit_core/planning_scene/include/moveit/planning_scene/planning_scene.hpp>`
+  // :moveit_codedir:`PlanningScene<moveit_core/planning_scene/include/moveit/planning_scene/planning_scene.h>`
   // that maintains the state of the world (including the robot).
   planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
 
@@ -94,13 +94,13 @@ int main(int argc, char** argv)
   // Note that we are using the ROS pluginlib library here.
   std::unique_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader;
   planning_interface::PlannerManagerPtr planner_instance;
-  std::vector<std::string> planner_plugin_names;
+  std::string planner_plugin_name;
 
   // We will get the name of planning plugin we want to load
   // from the ROS parameter server, and then load the planner
   // making sure to catch all exceptions.
-  if (!motion_planning_api_tutorial_node->get_parameter("ompl.planning_plugins", planner_plugin_names))
-    RCLCPP_FATAL(LOGGER, "Could not find planner plugin names");
+  if (!motion_planning_api_tutorial_node->get_parameter("planning_plugin", planner_plugin_name))
+    RCLCPP_FATAL(LOGGER, "Could not find planner plugin name");
   try
   {
     planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>(
@@ -110,18 +110,9 @@ int main(int argc, char** argv)
   {
     RCLCPP_FATAL(LOGGER, "Exception while creating planning plugin loader %s", ex.what());
   }
-
-  if (planner_plugin_names.empty())
-  {
-    RCLCPP_ERROR(LOGGER,
-                 "No planner plugins defined. Please make sure that the planning_plugins parameter is not empty.");
-    return -1;
-  }
-
-  const auto& planner_name = planner_plugin_names.at(0);
   try
   {
-    planner_instance.reset(planner_plugin_loader->createUnmanagedInstance(planner_name));
+    planner_instance.reset(planner_plugin_loader->createUnmanagedInstance(planner_plugin_name));
     if (!planner_instance->initialize(robot_model, motion_planning_api_tutorial_node,
                                       motion_planning_api_tutorial_node->get_namespace()))
       RCLCPP_FATAL(LOGGER, "Could not initialize planner instance");
@@ -133,7 +124,7 @@ int main(int argc, char** argv)
     std::stringstream ss;
     for (const auto& cls : classes)
       ss << cls << " ";
-    RCLCPP_ERROR(LOGGER, "Exception while loading planner '%s': %s\nAvailable plugins: %s", planner_name.c_str(),
+    RCLCPP_ERROR(LOGGER, "Exception while loading planner '%s': %s\nAvailable plugins: %s", planner_plugin_name.c_str(),
                  ex.what(), ss.str().c_str());
   }
 
@@ -186,7 +177,7 @@ int main(int argc, char** argv)
 
   // We will create the request as a constraint using a helper function available
   // from the
-  // :moveit_codedir:`kinematic_constraints<moveit_core/kinematic_constraints/include/moveit/kinematic_constraints/kinematic_constraint.hpp>`
+  // :moveit_codedir:`kinematic_constraints<moveit_core/kinematic_constraints/include/moveit/kinematic_constraints/kinematic_constraint.h>`
   // package.
   moveit_msgs::msg::Constraints pose_goal =
       kinematic_constraints::constructGoalConstraints("panda_link8", pose, tolerance_pose, tolerance_angle);
@@ -194,28 +185,16 @@ int main(int argc, char** argv)
   req.group_name = PLANNING_GROUP;
   req.goal_constraints.push_back(pose_goal);
 
-  // Define workspace bounds
-  req.workspace_parameters.min_corner.x = req.workspace_parameters.min_corner.y =
-      req.workspace_parameters.min_corner.z = -5.0;
-  req.workspace_parameters.max_corner.x = req.workspace_parameters.max_corner.y =
-      req.workspace_parameters.max_corner.z = 5.0;
-
   // We now construct a planning context that encapsulate the scene,
   // the request and the response. We call the planner using this
   // planning context
   planning_interface::PlanningContextPtr context =
-      planner_instance->getPlanningContext(planning_scene, req, res.error_code);
-
-  if (!context)
-  {
-    RCLCPP_ERROR(LOGGER, "Failed to create planning context");
-    return -1;
-  }
+      planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
   context->solve(res);
-  if (res.error_code.val != res.error_code.SUCCESS)
+  if (res.error_code_.val != res.error_code_.SUCCESS)
   {
     RCLCPP_ERROR(LOGGER, "Could not compute plan successfully");
-    return -1;
+    return 0;
   }
 
   // Visualize the result
@@ -260,14 +239,14 @@ int main(int argc, char** argv)
 
   // Call the planner and visualize the trajectory
   /* Re-construct the planning context */
-  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code);
+  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
   /* Call the Planner */
   context->solve(res);
   /* Check that the planning was successful */
-  if (res.error_code.val != res.error_code.SUCCESS)
+  if (res.error_code_.val != res.error_code_.SUCCESS)
   {
     RCLCPP_ERROR(LOGGER, "Could not compute plan successfully");
-    return -1;
+    return 0;
   }
   /* Visualize the trajectory */
   res.getMessage(response);
@@ -294,7 +273,7 @@ int main(int argc, char** argv)
   /* Now, we go back to the first goal to prepare for orientation constrained planning */
   req.goal_constraints.clear();
   req.goal_constraints.push_back(pose_goal);
-  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code);
+  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
   context->solve(res);
   res.getMessage(response);
 
@@ -349,7 +328,7 @@ int main(int argc, char** argv)
       req.workspace_parameters.max_corner.z = 2.0;
 
   // Call the planner and visualize all the plans created so far.
-  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code);
+  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
   context->solve(res);
   res.getMessage(response);
   display_trajectory.trajectory.push_back(response.trajectory);

@@ -52,6 +52,8 @@
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <pluginlib/class_loader.hpp>
+#include <moveit/planning_pipeline/planning_pipeline.h>
+#include <moveit/robot_state/conversions.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
@@ -68,8 +70,6 @@
 #include <moveit_msgs/msg/position_constraint.h>
 #include <moveit_msgs/msg/object_color.h>
 #include <std_msgs/msg/color_rgba.h>
-
-#include "multithread_solove.hpp"
 
 #ifndef MOTION_PLANNING_API_NODE_HPP
 #define MOTION_PLANNING_API_NODE_HPP
@@ -134,6 +134,8 @@ std::string END_EFFECTOR_CONTROL_GROUP;
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
 std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
 planning_scene_monitor::PlanningSceneMonitorPtr planning_scene_monitor_;
+robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
+planning_pipeline::PlanningPipelinePtr planning_pipeline_;
 const moveit::core::JointModelGroup* arm_model_group;
 std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan> plan_;
@@ -229,6 +231,7 @@ std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_get_min_sub_;
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_go_home_sub_;
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_auto_exchange_sub_;
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_clear_scense_sub_;
+std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> demon_run_sub_;
 
 bool robot_go_pose(const std::string & name);
 bool AutoExchangeMine();
@@ -236,6 +239,20 @@ bool AutoExchangeMine();
 geometry_msgs::msg::TransformStamped fix_RedeemBox_pos();
 
 void unfix_RedeemBox_pos();
+
+/*
+    @brief 多线程规划
+    @param req 规划请求
+    @param res 规划响应
+    @param threadnum 线程数
+    @return Success 1 or Fail 0
+*/
+bool MultithreadedPlanne(
+    const planning_interface::MotionPlanRequest& req, 
+    planning_interface::MotionPlanResponse & res,
+    int threadnum);
+
+bool DemonRun();
 
 };// Engineering_robot_Controller
 

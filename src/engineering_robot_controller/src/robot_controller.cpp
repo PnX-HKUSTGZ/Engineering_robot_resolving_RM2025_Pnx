@@ -30,7 +30,7 @@ Engineering_robot_Controller::Engineering_robot_Controller(rclcpp::NodeOptions n
 
 void Engineering_robot_Controller::LoadParam(){
 
-    this->declare_parameter("Location", "/home/pnx/code/Engineering_robot_resolving_RM2025_Pnx/");
+    this->declare_parameter("Location", "/home/lqx/code/Engineering_robot_resolving_RM2025_Pnx/");
     YAML::Node config=YAML::LoadFile(this->get_parameter("Location").as_string()+"/src/config.yaml");
     config=config["engineering_robot_controller"];
 
@@ -74,9 +74,11 @@ bool Engineering_robot_Controller::MoveitInit(){
         
         planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
         RCLCPP_INFO(this->get_logger(),"PlanningSceneInterface initialized successfully");
-        
+
+        robot_model_loader_=std::make_shared<robot_model_loader::RobotModelLoader>(this->shared_from_this(),"robot_description");
+
         planning_scene_monitor_=std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
-            this->shared_from_this(),"robot_description"
+            this->shared_from_this(),robot_model_loader_
         );
 
         planning_scene_monitor_->startSceneMonitor();
@@ -111,6 +113,19 @@ bool Engineering_robot_Controller::MoveitInit(){
         RCLCPP_ERROR(this->get_logger(),"fail to set the endeffector link : %s",end_link.c_str());
         return 0;
     }
+
+    std::string planning_plugin_name = "ompl_interface/OMPLPlanner"; // Example: OMPL plugin name
+    std::vector<std::string> adapter_plugin_names;
+    // Add common adapters. You should list the adapters configured for your robot.
+    adapter_plugin_names.push_back("default_planner_request_adapters/AddTimeOptimalParameterization");
+    adapter_plugin_names.push_back("default_planner_request_adapters/FixWorkspaceBounds");
+
+    planning_pipeline_=std::make_shared<planning_pipeline::PlanningPipeline>(
+        move_group_->getRobotModel(),
+        this->shared_from_this(),
+        this->get_namespace(),
+        planning_plugin_name,
+        adapter_plugin_names);
 
  
     RCLCPP_INFO(this->get_logger(),"Load Moveit2 Part ok!");
@@ -175,6 +190,11 @@ bool Engineering_robot_Controller::MoveitInit(){
         (void)msg;
         this->clearPlanScene();
         RCLCPP_INFO(this->get_logger(),"robot_trigger clear_scense ok!");
+    });
+
+    demon_run_sub_=this->create_subscription<std_msgs::msg::Bool>("/robot_trigger/demon_run",10,[this](const std_msgs::msg::Bool::ConstSharedPtr & msg){
+        (void)msg;
+        this->DemonRun();
     });
     return 1;
 
