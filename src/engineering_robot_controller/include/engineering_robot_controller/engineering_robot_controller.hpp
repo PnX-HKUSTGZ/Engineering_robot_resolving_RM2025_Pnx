@@ -100,6 +100,13 @@ namespace rvt = rviz_visual_tools;
 using namespace std::placeholders;
 using namespace std::chrono_literals;
 
+enum class MultithreadState {
+    PLANE_THREAD_NOLAUNCH = 0,
+    PLANE_THREAD_RUNNING = 1,
+    PLANE_THREAD_OK = 2,
+    PLANE_THREAD_ERROR = 3
+};
+
 struct PlayerCommandContent{
     rclcpp::Time command_time=rclcpp::Time(0,0);
     bool is_started=0;
@@ -250,6 +257,10 @@ void unfix_RedeemBox_pos();
 bool MultithreadedPlanne(
     const planning_interface::MotionPlanRequest& req, 
     planning_interface::MotionPlanResponse & res,
+    int threadnum);
+
+bool MultithreadedPlanne(
+    moveit::planning_interface::MoveGroupInterface::Plan& plan,
     int threadnum);
 
 bool DemonRun();

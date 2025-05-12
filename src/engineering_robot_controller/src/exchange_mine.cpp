@@ -59,10 +59,12 @@ geometry_msgs::msg::TransformStamped Engineering_robot_Controller::fix_RedeemBox
     }
 
     geometry_msgs::msg::TransformStamped msg;
+    msg.header.frame_id="";
 
     bool get_tranform=0;
+    int try_count=0;
     std::this_thread::sleep_for(10ms);
-    while(!get_tranform){
+    while(!get_tranform&&try_count<50){
         try{
             msg=tf2_buffer_->lookupTransform(
                 robot_base,
@@ -76,6 +78,11 @@ geometry_msgs::msg::TransformStamped Engineering_robot_Controller::fix_RedeemBox
             RCLCPP_ERROR_STREAM(this->get_logger(),"look transform of RedeemBox fail with"<<e.what()<<", try again");
             get_tranform=0;
         }
+        try_count++;
+    }
+    if(!get_tranform){
+        RCLCPP_ERROR(this->get_logger(),"look transform of RedeemBox fail!");
+        return msg;
     }
     RCLCPP_INFO_STREAM(this->get_logger(),"get transform of RedeemBox and "<<robot_base);
 
@@ -103,6 +110,10 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     // wait for robot get mine
 
     auto msg=fix_RedeemBox_pos();
+    if(msg.header.frame_id==""){
+        RCLCPP_ERROR(this->get_logger(),"fix_RedeemBox_pos fail!");
+        return 0;
+    }
     bool LoadAttachMinecheck=LoadAttachMine();
     if(!LoadAttachMinecheck){
         RCLCPP_ERROR(this->get_logger(),"LoadAttachMine fail!");
@@ -122,66 +133,103 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     TransformedTargetPose.header.stamp=this->now();
     TargetPose.position.x=0;
     TargetPose.position.y=0;
-    TargetPose.position.z=0;
+    TargetPose.position.z=-0.1;
     TargetPose.orientation.x=0;
     TargetPose.orientation.y=0;
     TargetPose.orientation.z=-0.7071068;
     TargetPose.orientation.w=0.7071068;
     doPoseTransform(TargetPose,TransformedTargetPose.pose,msg);
 
-    std::vector<double> tolerance_pose(3, 0.01);
-    std::vector<double> tolerance_angle(3, 0.01);
+    // std::vector<double> tolerance_pose(3, 0.01);
+    // std::vector<double> tolerance_angle(3, 0.01);
 
-    moveit_msgs::msg::Constraints goal_constaint =
-      kinematic_constraints::constructGoalConstraints(end_link, TransformedTargetPose, tolerance_pose, tolerance_angle);
+    // moveit_msgs::msg::Constraints goal_constaint =
+    //   kinematic_constraints::constructGoalConstraints(end_link, TransformedTargetPose, tolerance_pose, tolerance_angle);
 
-    planning_interface::MotionPlanRequest req;
-    planning_interface::MotionPlanResponse res;
+    // planning_interface::MotionPlanRequest req;
+    // planning_interface::MotionPlanResponse res;
 
-    req.group_name=ARM_CONTROL_GROUP;
-    req.allowed_planning_time=minPlanTime;
-    req.num_planning_attempts=1;
-    req.goal_constraints.push_back(goal_constaint);
-    req.max_velocity_scaling_factor=1;
-    req.max_acceleration_scaling_factor=1;
-    req.planner_id="ompl";
+    // req.group_name=ARM_CONTROL_GROUP;
+    // req.allowed_planning_time=minPlanTime;
+    // req.num_planning_attempts=1;
+    // req.goal_constraints.push_back(goal_constaint);
+    // req.max_velocity_scaling_factor=1;
+    // req.max_acceleration_scaling_factor=1;
+    // req.planner_id="ompl";
 
-    bool success=MultithreadedPlanne(req,res,1);
+    // bool success=MultithreadedPlanne(req,res,1);
 
+    // if(!success){
+    //     RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail!");
+    //     return 0;
+    // }
+
+
+    RCLCPP_INFO_STREAM(this->get_logger(),"maxOrientationTolerance "<<maxOrientationTolerance);
+    RCLCPP_INFO_STREAM(this->get_logger(),"maxPositionTolerance "<<maxPositionTolerance);
+    RCLCPP_INFO_STREAM(this->get_logger(),"minOrientationTolerance "<<minOrientationTolerance);
+    RCLCPP_INFO_STREAM(this->get_logger(),"minPositionTolerance "<<minPositionTolerance);
+    RCLCPP_INFO_STREAM(this->get_logger(),"minPlanTime "<<minPlanTime);
+    RCLCPP_INFO_STREAM(this->get_logger(),"maxPlanTime "<<maxPlanTime);
+
+    bool success=0;
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+    clear_constraints_state();
+    move_group_->setPoseTarget(TransformedTargetPose);
+    move_group_->setGoalOrientationTolerance(maxOrientationTolerance);
+    move_group_->setGoalPositionTolerance(maxPositionTolerance);
+    move_group_->setMaxVelocityScalingFactor(1);
+    move_group_->setMaxAccelerationScalingFactor(1);
+    move_group_->setPlanningTime(minPlanTime);
+    move_group_->setReplanAttempts(4);
+
+    try{
+        // success=MultithreadedPlanne(plan,6);
+        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+    }
+    catch(const std::exception & e){
+        RCLCPP_INFO(this->get_logger(),"robot_go_pose plan failed! with %s",e.what());
+        return 0;
+    }
     if(!success){
         RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail!");
         return 0;
     }
 
-    // bool success=0;
-    // moveit::planning_interface::MoveGroupInterface::Plan plan;
+    try{
+        move_group_->execute(plan);
+    }
+    catch(const std::exception & e){
+        RCLCPP_INFO(this->get_logger(),"robot_go_pose move failed! with %s",e.what());
+        return 0;
+    }
+    RCLCPP_INFO(this->get_logger(),"robot_go_pose success!");
 
-    // clear_constraints_state();
-    // move_group_->setPoseTarget(TransformedTargetPose);
-    // move_group_->setGoalOrientationTolerance(minOrientationTolerance);
-    // move_group_->setGoalPositionTolerance(minPositionTolerance);
-    // move_group_->setMaxVelocityScalingFactor(1);
-    // move_group_->setMaxAccelerationScalingFactor(1);
-    // move_group_->setPlanningTime(minPlanTime);
 
-    // for(int i=0;i<=AllowPlanAttempt;i++){
-    //     move_group_->setGoalPositionTolerance(minPositionTolerance+i*PositionToleranceStep);
-    //     move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*PositionToleranceStep);
-    //     RCLCPP_INFO(this->get_logger(),"robot_go_pose try %d, %lf",i,minPositionTolerance+i*PositionToleranceStep);
-    //     RCLCPP_INFO(this->get_logger(),"robot_go_pose try %d, %lf",i,minOrientationTolerance+i*PositionToleranceStep);
-    //     success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
-    //     if(success){
-    //         break;
-    //     }
-    //     else{
-    //         RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail! try again");
-    //     }
-    // }
+    clear_constraints_state();
+    move_group_->setPoseTarget(TransformedTargetPose);
+    move_group_->setGoalOrientationTolerance(minOrientationTolerance);
+    move_group_->setGoalPositionTolerance(minPositionTolerance);
+    move_group_->setMaxVelocityScalingFactor(1);
+    move_group_->setMaxAccelerationScalingFactor(1);
+    move_group_->setPlanningTime(maxPlanTime);
 
     try{
-        moveit_msgs::msg::RobotTrajectory trajectory;
-        res.trajectory_->getRobotTrajectoryMsg(trajectory);
-        move_group_->execute(trajectory);
+        // success=MultithreadedPlanne(plan,6);
+        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+    }
+    catch(const std::exception & e){
+        RCLCPP_INFO(this->get_logger(),"robot_go_pose plan failed! with %s",e.what());
+        return 0;
+    }
+    if(!success){
+        RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail!");
+        return 0;
+    }
+
+    try{
+        move_group_->execute(plan);
     }
     catch(const std::exception & e){
         RCLCPP_INFO(this->get_logger(),"robot_go_pose move failed! with %s",e.what());
@@ -352,7 +400,7 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     geometry_msgs::msg::Pose TransformedTargetPose;
     TargetPose.position.x=0;
     TargetPose.position.y=0;
-    TargetPose.position.z=-0.15;
+    TargetPose.position.z=-0.1;
     TargetPose.orientation.x=0;
     TargetPose.orientation.y=0;
     TargetPose.orientation.z=-0.7071068;
@@ -369,20 +417,9 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
     move_group_->setPlanningTime(minPlanTime);
+    move_group_->setReplanAttempts(4);
 
-    for(int i=0;i<AllowPlanAttempt;i++){
-        move_group_->setGoalPositionTolerance(minPositionTolerance+i*PositionToleranceStep);
-        move_group_->setGoalOrientationTolerance(minOrientationTolerance+i*OrientationToleranceStep);
-        RCLCPP_INFO(this->get_logger(),"state 2 plane try %d, pose %lf",i,minPositionTolerance+i*PositionToleranceStep);
-        RCLCPP_INFO(this->get_logger(),"state 2 plane try %d, rotate %lf",i,minOrientationTolerance+i*OrientationToleranceStep);
-        success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
-        if(success){
-            break;
-        }
-        else{
-            RCLCPP_ERROR(this->get_logger(),"state 2 plan fail! try again");
-        }
-    }
+    success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
     if(!success){
         set_computer_state(STATE_ERROR,0);
