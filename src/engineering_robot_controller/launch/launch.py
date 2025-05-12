@@ -26,7 +26,15 @@ from moveit_configs_utils.launch_utils import (
 
 def generate_launch_description():
 
-    moveit_config = MoveItConfigsBuilder("engineering_robot", package_name="engineering_robot_moveit").to_moveit_configs()
+    moveit_config = (
+        MoveItConfigsBuilder("engineering_robot", package_name="engineering_robot_moveit")
+        .planning_scene_monitor(
+            publish_robot_description=True, publish_robot_description_semantic=True
+        )
+        .planning_pipelines("ompl", ["ompl"])
+        .to_moveit_configs()
+    )
+
     robot_controllerPath = get_package_share_directory("engineering_robot_controller")
     engineering_robot_hardware_interfacePath = get_package_share_directory("engineering_robot_hardware_interface")
     config_path = os.path.join(robot_controllerPath,"config/sample_config.yaml")
@@ -159,10 +167,11 @@ def generate_launch_description():
     #     executable="engineering_robot_controller",
     #     name="engineering_robot_controller",
     #     parameters=[
-    #         config_path,
-    #         moveit_config.to_dict(),
-    #         {"planning_plugins":["ompl_interface/OMPLPlanner", "pilz_industrial_motion_planner/CommandPlanner"]},
-    #         use_sim_time
+    #         moveit_config.robot_description,
+    #         moveit_config.robot_description_semantic,
+    #         moveit_config.robot_description_kinematics,
+    #         moveit_config.planning_pipelines,
+    #         moveit_config.joint_limits,
     #         ],
     #     )
     # )

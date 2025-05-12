@@ -142,7 +142,6 @@ std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
 std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
 planning_scene_monitor::PlanningSceneMonitorPtr planning_scene_monitor_;
 robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
-planning_pipeline::PlanningPipelinePtr planning_pipeline_;
 const moveit::core::JointModelGroup* arm_model_group;
 std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan> plan_;

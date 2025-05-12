@@ -119,14 +119,6 @@ bool Engineering_robot_Controller::MoveitInit(){
     // Add common adapters. You should list the adapters configured for your robot.
     adapter_plugin_names.push_back("default_planner_request_adapters/AddTimeOptimalParameterization");
     adapter_plugin_names.push_back("default_planner_request_adapters/FixWorkspaceBounds");
-
-    planning_pipeline_=std::make_shared<planning_pipeline::PlanningPipeline>(
-        move_group_->getRobotModel(),
-        this->shared_from_this(),
-        this->get_namespace(),
-        planning_plugin_name,
-        adapter_plugin_names);
-
  
     RCLCPP_INFO(this->get_logger(),"Load Moveit2 Part ok!");
     
