@@ -77,40 +77,28 @@ bool Engineering_robot_Controller::MoveitInit(){
         planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
         RCLCPP_INFO(this->get_logger(),"PlanningSceneInterface initialized successfully");
 
-        // robot_model_loader_=std::make_shared<robot_model_loader::RobotModelLoader>(this->shared_from_this(),"robot_description");
-
-        rclcpp::NodeOptions node_options;
-        node_options.automatically_declare_parameters_from_overrides(true);
-        
-        for(int i=0;i<MultithreadNum;i++){
-            planning_scene_monitor_nodes_.push_back(rclcpp::Node::make_shared("planning_scene_monitor_node_xxx"+std::to_string(i), node_options));
-            
-            // executor.push_back(rclcpp::executors::SingleThreadedExecutor());
-            // executor[i].add_node(planning_scene_monitor_nodes_[i]);
-            std::thread([this,i](){
-                rclcpp::executors::SingleThreadedExecutor executor;
-                executor.add_node(planning_scene_monitor_nodes_[i]);
-                executor.spin();
-            }).detach();
-
-            // robot_model_loaders_.push_back(std::make_shared<robot_model_loader::RobotModelLoader>(planning_scene_monitor_nodes_[i],"robot_description"));
-
-            planning_scene_monitors_.push_back(
-                std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
-                    planning_scene_monitor_nodes_[i],"robot_description"
-                    
-                )
-            );
-            planning_scene_monitors_[i]->startSceneMonitor();
-            planning_scene_monitors_[i]->startWorldGeometryMonitor();
-            planning_scene_monitors_[i]->startStateMonitor();
-        }
-
-        RCLCPP_INFO(this->get_logger(),"planning_scene_monitors_ init finish");
-
         arm_model_group=move_group_->getCurrentState()->getJointModelGroup(ARM_CONTROL_GROUP);
         RCLCPP_INFO(this->get_logger(),"JointModelGroup for %s loaded successfully", ARM_CONTROL_GROUP.c_str());
         
+        resolving_nodes_=std::vector<std::shared_ptr<Resolving_Node> >(MultithreadNum);
+
+        for(int i=0;i<MultithreadNum;i++){
+            resolving_nodes_[i]=std::make_shared<Resolving_Node>(
+                "Resolving_Node_"+std::to_string(i),
+                ARM_CONTROL_GROUP,
+                END_EFFECTOR_CONTROL_GROUP,
+                end_link
+            );
+        }
+        bool MultithreadInitCheck=1;
+        for(int i=0;i<MultithreadNum;i++){
+            MultithreadInitCheck=MultithreadInitCheck&&resolving_nodes_[i]->MoveitInit();
+        }
+        if(!MultithreadInitCheck){
+            RCLCPP_INFO(this->get_logger(),"Multi init fail!");
+            return 0;
+        }
+
         visual_tools_=std::shared_ptr<moveit_visual_tools::MoveItVisualTools>(new moveit_visual_tools::MoveItVisualTools(this->shared_from_this(),robot_base,"robot",move_group_->getRobotModel()));
         RCLCPP_INFO(this->get_logger(),"MoveItVisualTools initialized with reference frame: %s",robot_base.c_str());
         

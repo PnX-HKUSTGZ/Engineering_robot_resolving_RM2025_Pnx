@@ -140,55 +140,35 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     TargetPose.orientation.w=0.7071068;
     doPoseTransform(TargetPose,TransformedTargetPose.pose,msg);
 
-    std::vector<double> tolerance_pose(3, 0.01);
-    std::vector<double> tolerance_angle(3, 0.01);
+    Multiclear_constraints_state();
+    MultisetPoseTarget(TransformedTargetPose);
+    MultisetGoalOrientationTolerance(minOrientationTolerance);
+    MultisetGoalPositionTolerance(minPositionTolerance);
+    MultisetMaxVelocityScalingFactor(1);
+    MultisetMaxAccelerationScalingFactor(1);
+    MultisetPlanningTime(minPlanTime);
+    MultisetReplanAttempts(4);
 
-    moveit_msgs::msg::Constraints goal_constaint =
-      kinematic_constraints::constructGoalConstraints(end_link, TransformedTargetPose, tolerance_pose, tolerance_angle);
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+    bool success=MultithreadedPlanne(plan);
 
-    planning_interface::MotionPlanRequest req;
-    planning_interface::MotionPlanResponse res;
-
-    req.pipeline_id = "ompl";
-    req.planner_id = "geometric::RRTConnect";
-    req.allowed_planning_time = 1.0;
-    req.max_velocity_scaling_factor = 1.0;
-    req.max_acceleration_scaling_factor = 1.0;
-
-    req.group_name=ARM_CONTROL_GROUP;
-    req.allowed_planning_time=minPlanTime;
-    req.num_planning_attempts=AllowPlanAttempt;
-    req.max_velocity_scaling_factor=1.0;
-    req.max_acceleration_scaling_factor=1.0;
-
-    req.goal_constraints.push_back(goal_constaint);
-
-    bool success=0;
-
-    try{
-        success=MultithreadedPlanne(req,res,MultithreadNum);
-    }
-    catch(const std::exception & e){
-        RCLCPP_INFO(this->get_logger(),"robot_go_pose plan failed! with %s",e.what());
-        return 0;
-    }
     if(!success){
-        RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail!");
+        RCLCPP_ERROR(this->get_logger(),"plan fail!");
         return 0;
     }
-
-    
+    else{
+        RCLCPP_INFO(this->get_logger(),"plan success!");
+    }
 
     try{
-        moveit_msgs::msg::RobotTrajectory trajectory;
-        res.trajectory_->getRobotTrajectoryMsg(trajectory);
-        move_group_->execute(trajectory);
+        move_group_->execute(plan);
     }
     catch(const std::exception & e){
-        RCLCPP_INFO(this->get_logger(),"robot_go_pose move failed! with %s",e.what());
-        return 0;
+        RCLCPP_ERROR(this->get_logger(),"move failed! with %s",e.what());
+        return;
     }
-    RCLCPP_INFO(this->get_logger(),"robot_go_pose success!");
+
+    RCLCPP_INFO(this->get_logger(),"move finish !");
 
     return 1;
 }

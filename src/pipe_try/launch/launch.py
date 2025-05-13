@@ -37,7 +37,7 @@ def generate_launch_description():
         .planning_scene_monitor(
             publish_robot_description=True, publish_robot_description_semantic=True
         )
-        .planning_pipelines("ompl", ["ompl"])
+        .planning_pipelines(pipelines=["ompl"])
         .to_moveit_configs()
     )
 
@@ -48,11 +48,12 @@ def generate_launch_description():
         executable="pipe_try",
         output="screen",
         parameters=[
-            moveit_config.robot_description,
-            moveit_config.robot_description_semantic,
-            moveit_config.robot_description_kinematics,
-            moveit_config.planning_pipelines,
-            moveit_config.joint_limits,
+            moveit_config.to_dict(),
+            # moveit_config.robot_description,
+            # moveit_config.robot_description_semantic,
+            # moveit_config.robot_description_kinematics,
+            # moveit_config.planning_pipelines,
+            # moveit_config.joint_limits,
         ],
     )
 

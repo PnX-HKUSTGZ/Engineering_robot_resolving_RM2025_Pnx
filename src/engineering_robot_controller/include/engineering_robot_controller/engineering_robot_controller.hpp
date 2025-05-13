@@ -123,6 +123,41 @@ struct ComputerState{
     uint8_t pos3_state:2;
 };
 
+class Resolving_Node: public rclcpp::Node{
+
+public:
+
+// init the node, after this you have to run MoveitInit to init moveit!
+Resolving_Node(
+    std::string name,
+    const std::string & ARM_CONTROL_GROUP,
+    const std::string & END_EFFECTOR_CONTROL_GROUP,
+    const std::string & end_link,
+    rclcpp::NodeOptions node_options=rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
+
+bool MoveitInit();
+
+void clear_constraints_state();
+bool setPoseTarget(const geometry_msgs::msg::Pose & targetpose);
+void setGoalOrientationTolerance(double tolerance);
+void setGoalPositionTolerance(double tolerance);
+void setMaxVelocityScalingFactor(double factor);
+void setMaxAccelerationScalingFactor(double factor);
+void setPlanningTime(double time);
+void setReplanAttempts(int times);
+bool setEndEffectorLink(const std::string & end_link);
+moveit::core::MoveItErrorCode plan(moveit::planning_interface::MoveGroupInterface::Plan &plan);
+
+private:
+
+std::string ARM_CONTROL_GROUP;
+std::string END_EFFECTOR_CONTROL_GROUP;
+std::string end_link;
+
+std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
+
+};
+
 class Engineering_robot_Controller: public rclcpp::Node{
 
 public:
@@ -140,9 +175,10 @@ std::string END_EFFECTOR_CONTROL_GROUP;
 
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
 std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
-std::vector<planning_scene_monitor::PlanningSceneMonitorPtr> planning_scene_monitors_;
-std::vector<std::shared_ptr<rclcpp::Node>> planning_scene_monitor_nodes_;
-std::vector<robot_model_loader::RobotModelLoaderPtr> robot_model_loaders_;
+// std::vector<planning_scene_monitor::PlanningSceneMonitorPtr> planning_scene_monitors_;
+// std::vector<std::shared_ptr<rclcpp::Node>> planning_scene_monitor_nodes_;
+// std::vector<robot_model_loader::RobotModelLoaderPtr> robot_model_loaders_;
+std::vector<std::shared_ptr<Resolving_Node> > resolving_nodes_;
 const moveit::core::JointModelGroup* arm_model_group;
 std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan> plan_;
@@ -264,7 +300,20 @@ bool MultithreadedPlanne(
     moveit::planning_interface::MoveGroupInterface::Plan& plan,
     int threadnum);
 
+bool MultithreadedPlanne(
+    moveit::planning_interface::MoveGroupInterface::Plan& plan);
+
 bool DemonRun();
+
+void Multiclear_constraints_state();
+bool MultisetPoseTarget(const geometry_msgs::msg::Pose & targetpose);
+void MultisetGoalOrientationTolerance(double tolerance);
+void MultisetGoalPositionTolerance(double tolerance);
+void MultisetMaxVelocityScalingFactor(double factor);
+void MultisetMaxAccelerationScalingFactor(double factor);
+void MultisetPlanningTime(double time);
+void MultisetReplanAttempts(int times);
+bool MultisetEndEffectorLink(const std::string & end_link);
 
 };// Engineering_robot_Controller
 
