@@ -9,6 +9,7 @@ engineering_robot_controller:
     maxPlanTime: 5
     ARM_CONTROL_GROUP: "arm"
     END_EFFECTOR_CONTROL_GROUP : "sucker"
+    MultithreadNum: 1
 
 
 # engineering_robot_controller:

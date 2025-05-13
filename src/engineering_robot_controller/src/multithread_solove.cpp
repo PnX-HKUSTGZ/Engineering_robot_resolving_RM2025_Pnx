@@ -21,22 +21,17 @@ bool Engineering_robot_Controller::MultithreadedPlanne(
     }
     std::vector<planning_interface::MotionPlanResponse> thread_res(threadnum);
 
-    moveit::core::RobotModelPtr robot_model = robot_model_loader_->getModel();
-
-    moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
-        planning_scene_monitor::LockedPlanningSceneRO(planning_scene_monitor_)->getCurrentState()));
-
-    const moveit::core::JointModelGroup* joint_model_group = robot_state->getJointModelGroup(ARM_CONTROL_GROUP);
-
-    planning_pipeline::PlanningPipelinePtr planning_pipeline_(
-        new planning_pipeline::PlanningPipeline(robot_model, this->shared_from_this(), "ompl"));
-
     for(int i=0;i<threadnum;i++){
-        threads.push_back(std::thread([i,&thread_res,&thread_status,&planning_pipeline_,req,this](){
+        threads.push_back(std::thread([i,&thread_res,&thread_status,req,this](){
             thread_status[i]=MultithreadState::PLANE_THREAD_RUNNING;
-            planning_scene_monitor::LockedPlanningSceneRO lscene(planning_scene_monitor_);
-            
             bool ok=0;
+            {// LockedPlanningSceneRO
+            planning_scene_monitor::LockedPlanningSceneRO lscene(planning_scene_monitors_[i]);
+
+            // moveit::core::RobotModelPtr robot_model = robot_model_loaders_[i]->getModel();
+            planning_pipeline::PlanningPipelinePtr planning_pipeline_(
+                new planning_pipeline::PlanningPipeline(lscene->getRobotModel(), this->shared_from_this(), "ompl"));
+
             try{
                 ok=planning_pipeline_->generatePlan(lscene, req, thread_res[i]);
             }
@@ -45,6 +40,7 @@ bool Engineering_robot_Controller::MultithreadedPlanne(
                 thread_status[i]=MultithreadState::PLANE_THREAD_ERROR;
                 return;
             }
+            }// LockedPlanningSceneRO
             if(ok&&thread_res[i].error_code_.val==thread_res[i].error_code_.SUCCESS){
                 thread_status[i]=MultithreadState::PLANE_THREAD_OK;
                 RCLCPP_INFO(this->get_logger(), "thread NO.%d Planning succeeded!", i);
@@ -57,6 +53,8 @@ bool Engineering_robot_Controller::MultithreadedPlanne(
             }
         }));            
     }
+
+    RCLCPP_INFO(this->get_logger(), "MultithreadedPlanne started!");
 
     // 等待有线程算出正确答案，或者所有线程出错
     bool get_ans=0;
@@ -79,12 +77,7 @@ bool Engineering_robot_Controller::MultithreadedPlanne(
 
 
     for(int i=0;i<threadnum;i++){
-        if(thread_status[i]==MultithreadState::PLANE_THREAD_RUNNING){
-            pthread_cancel(threads[i].native_handle());
-        }
-        else{
-            threads[i].join();
-        }
+        threads[i].join();
     }
 
     if(get_ans){

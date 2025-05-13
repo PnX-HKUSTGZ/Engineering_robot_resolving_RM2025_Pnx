@@ -150,7 +150,7 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     planning_interface::MotionPlanResponse res;
 
     req.pipeline_id = "ompl";
-    req.planner_id = "RRTConnectkConfigDefault";
+    req.planner_id = "geometric::RRTConnect";
     req.allowed_planning_time = 1.0;
     req.max_velocity_scaling_factor = 1.0;
     req.max_acceleration_scaling_factor = 1.0;
@@ -166,7 +166,7 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     bool success=0;
 
     try{
-        success=MultithreadedPlanne(req,res,1);
+        success=MultithreadedPlanne(req,res,MultithreadNum);
     }
     catch(const std::exception & e){
         RCLCPP_INFO(this->get_logger(),"robot_go_pose plan failed! with %s",e.what());
@@ -176,6 +176,8 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
         RCLCPP_ERROR(this->get_logger(),"robot_go_pose fail!");
         return 0;
     }
+
+    
 
     try{
         moveit_msgs::msg::RobotTrajectory trajectory;

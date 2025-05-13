@@ -44,6 +44,7 @@ void Engineering_robot_Controller::LoadParam(){
     AllowPlanAttempt = config["AllowPlanAttempt"].as<int>(10);
     minPlanTime = config["minPlanTime"].as<double>(2);
     maxPlanTime = config["maxPlanTime"].as<double>(3);
+    MultithreadNum = config["MultithreadNum"].as<int>(2);
     
     if(AllowPlanAttempt<1){
         RCLCPP_ERROR(this->get_logger(),"AllowPlanAttempt must be greater than 0, use default val 3");
@@ -63,6 +64,7 @@ void Engineering_robot_Controller::LoadParam(){
     RCLCPP_INFO_STREAM(this->get_logger(), "AllowPlanAttempt: " << AllowPlanAttempt);
     RCLCPP_INFO_STREAM(this->get_logger(), "minPlanTime: " << minPlanTime);
     RCLCPP_INFO_STREAM(this->get_logger(), "maxPlanTime: " << maxPlanTime);
+    RCLCPP_INFO_STREAM(this->get_logger(), "MultithreadNum: " << MultithreadNum);
     RCLCPP_INFO_STREAM(this->get_logger(), "------------------------");
 
 }
@@ -75,16 +77,36 @@ bool Engineering_robot_Controller::MoveitInit(){
         planning_scene_interface_=std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
         RCLCPP_INFO(this->get_logger(),"PlanningSceneInterface initialized successfully");
 
-        robot_model_loader_=std::make_shared<robot_model_loader::RobotModelLoader>(this->shared_from_this(),"robot_description");
+        // robot_model_loader_=std::make_shared<robot_model_loader::RobotModelLoader>(this->shared_from_this(),"robot_description");
 
-        planning_scene_monitor_=std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
-            this->shared_from_this(),robot_model_loader_
-        );
+        rclcpp::NodeOptions node_options;
+        node_options.automatically_declare_parameters_from_overrides(true);
+        
+        for(int i=0;i<MultithreadNum;i++){
+            planning_scene_monitor_nodes_.push_back(rclcpp::Node::make_shared("planning_scene_monitor_node_xxx"+std::to_string(i), node_options));
+            
+            // executor.push_back(rclcpp::executors::SingleThreadedExecutor());
+            // executor[i].add_node(planning_scene_monitor_nodes_[i]);
+            std::thread([this,i](){
+                rclcpp::executors::SingleThreadedExecutor executor;
+                executor.add_node(planning_scene_monitor_nodes_[i]);
+                executor.spin();
+            }).detach();
 
-        planning_scene_monitor_->startSceneMonitor();
-        planning_scene_monitor_->startWorldGeometryMonitor();
-        planning_scene_monitor_->startStateMonitor();
-        RCLCPP_INFO(this->get_logger(),"planning_scene_monitor_ init finish");
+            // robot_model_loaders_.push_back(std::make_shared<robot_model_loader::RobotModelLoader>(planning_scene_monitor_nodes_[i],"robot_description"));
+
+            planning_scene_monitors_.push_back(
+                std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
+                    planning_scene_monitor_nodes_[i],"robot_description"
+                    
+                )
+            );
+            planning_scene_monitors_[i]->startSceneMonitor();
+            planning_scene_monitors_[i]->startWorldGeometryMonitor();
+            planning_scene_monitors_[i]->startStateMonitor();
+        }
+
+        RCLCPP_INFO(this->get_logger(),"planning_scene_monitors_ init finish");
 
         arm_model_group=move_group_->getCurrentState()->getJointModelGroup(ARM_CONTROL_GROUP);
         RCLCPP_INFO(this->get_logger(),"JointModelGroup for %s loaded successfully", ARM_CONTROL_GROUP.c_str());
@@ -329,47 +351,24 @@ bool Engineering_robot_Controller::LoadAttachMine(){
     collision_object.mesh_poses.push_back(object_pose_relative_to_tf);
     collision_object.operation = moveit_msgs::msg::CollisionObject::ADD;
 
-    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-    collision_objects.push_back(collision_object);
 
-    planning_scene_interface_->addCollisionObjects(collision_objects);
+    moveit_msgs::msg::AttachedCollisionObject attached_object;
+    attached_object.object=collision_object;
+    attached_object.touch_links.push_back(end_link);
+    attached_object.weight=1.0;
+    attached_object.link_name=end_link;
 
-    bool ok=0;
-    int attempt_time=0;
-    while(!(ok=IsObjectInScene("Mine"))){
-        RCLCPP_INFO(this->get_logger(),"waiting load Mine...");
-        attempt_time++;
-        std::this_thread::sleep_for(20ms);
-        if(attempt_time>=50) break;
-    }
+
+    // planning_scene_interface_->addCollisionObjects(collision_objects);
+    bool ok=planning_scene_interface_->applyAttachedCollisionObject(attached_object);
+
     if(!ok){
         RCLCPP_ERROR(this->get_logger(),"load Mine time out");
-        return 0;
     }
     else{
         RCLCPP_INFO(this->get_logger(),"load Mine ok!");
     }
-
-    bool disablecheck=disableObjectRobotCollision(collision_object.id,collision_object.header.frame_id);
-    if(disablecheck){
-        RCLCPP_INFO(this->get_logger(), "disableObjectRobotCollision %s , %s ok!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
-    }
-    else{
-        RCLCPP_ERROR(this->get_logger(), "disableObjectRobotCollision %s , %s failed!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
-        return 0; 
-    }
-
-    bool attachObjectCheck=move_group_->attachObject(collision_object.id,collision_object.header.frame_id);
-    if(attachObjectCheck){
-        RCLCPP_INFO(this->get_logger(), "attachObject %s , %s ok!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
-    }
-    else{
-        RCLCPP_ERROR(this->get_logger(), "attachObjectCheck %s , %s failed!",collision_object.id.c_str(), collision_object.header.frame_id.c_str());
-        return 0; 
-    }
-
-    return 1;
-
+    return ok;
 }
 
 bool Engineering_robot_Controller::LoadRedeemBox(geometry_msgs::msg::TransformStamped msg){
@@ -452,17 +451,9 @@ bool Engineering_robot_Controller::LoadRedeemBox(){
     std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
     collision_objects.push_back(collision_object);
 
-    planning_scene_interface_->addCollisionObjects(collision_objects);
+    bool ok=planning_scene_interface_->applyCollisionObjects(collision_objects);
     planning_scene_interface_->applyPlanningScene(planning_scene);
 
-    bool ok=0;
-    int attempt_time=0;
-    while(!(ok=IsObjectInScene("RedeemBox"))){
-        RCLCPP_INFO(this->get_logger(),"waiting load RedeemBox...");
-        attempt_time++;
-        std::this_thread::sleep_for(20ms);
-        if(attempt_time>=50) break;
-    }
     if(!ok){
         RCLCPP_ERROR(this->get_logger(),"load RedeemBox time out");
         return 0;

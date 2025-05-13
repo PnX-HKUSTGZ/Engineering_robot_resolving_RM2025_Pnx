@@ -140,8 +140,9 @@ std::string END_EFFECTOR_CONTROL_GROUP;
 
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
 std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
-planning_scene_monitor::PlanningSceneMonitorPtr planning_scene_monitor_;
-robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
+std::vector<planning_scene_monitor::PlanningSceneMonitorPtr> planning_scene_monitors_;
+std::vector<std::shared_ptr<rclcpp::Node>> planning_scene_monitor_nodes_;
+std::vector<robot_model_loader::RobotModelLoaderPtr> robot_model_loaders_;
 const moveit::core::JointModelGroup* arm_model_group;
 std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 std::shared_ptr<moveit::planning_interface::MoveGroupInterface::Plan> plan_;
@@ -189,6 +190,7 @@ double maxPositionTolerance=0.05;
 double minPlanTime=10;
 double maxPlanTime=15;
 int AllowPlanAttempt=5;
+int MultithreadNum=5;
 
 double OrientationToleranceStep=0;
 double PositionToleranceStep=0;
