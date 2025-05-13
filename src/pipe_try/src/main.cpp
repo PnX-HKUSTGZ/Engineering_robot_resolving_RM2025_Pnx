@@ -190,7 +190,7 @@ int main(int argc, char** argv)
   geometry_msgs::msg::PoseStamped pose;
   pose.header.frame_id = "robot_base_link";
   pose.pose.position.x = 0.1;
-  pose.pose.position.y = 0.5;
+  pose.pose.position.y = 0.7;
   pose.pose.position.z = 0.2;
   pose.pose.orientation.w = 1.0;
 

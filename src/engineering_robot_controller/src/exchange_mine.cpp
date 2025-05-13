@@ -141,7 +141,7 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     doPoseTransform(TargetPose,TransformedTargetPose.pose,msg);
 
     Multiclear_constraints_state();
-    MultisetPoseTarget(TransformedTargetPose);
+    MultisetPoseTarget(TransformedTargetPose.pose);
     MultisetGoalOrientationTolerance(minOrientationTolerance);
     MultisetGoalPositionTolerance(minPositionTolerance);
     MultisetMaxVelocityScalingFactor(1);
@@ -165,7 +165,7 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     }
     catch(const std::exception & e){
         RCLCPP_ERROR(this->get_logger(),"move failed! with %s",e.what());
-        return;
+        return 0;
     }
 
     RCLCPP_INFO(this->get_logger(),"move finish !");

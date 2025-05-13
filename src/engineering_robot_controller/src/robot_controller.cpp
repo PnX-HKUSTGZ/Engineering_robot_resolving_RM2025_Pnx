@@ -98,6 +98,7 @@ bool Engineering_robot_Controller::MoveitInit(){
             RCLCPP_INFO(this->get_logger(),"Multi init fail!");
             return 0;
         }
+        RCLCPP_INFO(this->get_logger(),"Multi init ok!");
 
         visual_tools_=std::shared_ptr<moveit_visual_tools::MoveItVisualTools>(new moveit_visual_tools::MoveItVisualTools(this->shared_from_this(),robot_base,"robot",move_group_->getRobotModel()));
         RCLCPP_INFO(this->get_logger(),"MoveItVisualTools initialized with reference frame: %s",robot_base.c_str());

@@ -3,7 +3,7 @@
 
 namespace Engineering_robot_RM2025_Pnx{
 
-Resolving_Node(
+Resolving_Node::Resolving_Node(
     std::string name,
     const std::string & ARM_CONTROL_GROUP,
     const std::string & END_EFFECTOR_CONTROL_GROUP,
@@ -101,43 +101,43 @@ bool Engineering_robot_Controller::MultisetPoseTarget(const geometry_msgs::msg::
 
 void Engineering_robot_Controller::MultisetGoalOrientationTolerance(double tolerance){
     for(int i=0;i<MultithreadNum;i++){
-        resolving_nodes_[i]->GoalOrientationTolerance(tolerance);
+        resolving_nodes_[i]->setGoalOrientationTolerance(tolerance);
     }
 }
 
 void Engineering_robot_Controller::MultisetGoalPositionTolerance(double tolerance){
     for(int i=0;i<MultithreadNum;i++){
-        resolving_nodes_[i]->GoalPositionTolerance(tolerance);
+        resolving_nodes_[i]->setGoalPositionTolerance(tolerance);
     }
 }
 
 void Engineering_robot_Controller::MultisetMaxVelocityScalingFactor(double factor){
     for(int i=0;i<MultithreadNum;i++){
-        resolving_nodes_[i]->MaxVelocityScalingFactor(factor);
+        resolving_nodes_[i]->setMaxVelocityScalingFactor(factor);
     }
 }
 
 void Engineering_robot_Controller::MultisetMaxAccelerationScalingFactor(double factor){
     for(int i=0;i<MultithreadNum;i++){
-        resolving_nodes_[i]->MaxAccelerationScalingFactor(factor);
+        resolving_nodes_[i]->setMaxAccelerationScalingFactor(factor);
     }
 }
 
 void Engineering_robot_Controller::MultisetPlanningTime(double time){
     for(int i=0;i<MultithreadNum;i++){
-        resolving_nodes_[i]->PlanningTime(time);
+        resolving_nodes_[i]->setPlanningTime(time);
     }
 }
 
 void Engineering_robot_Controller::MultisetReplanAttempts(int times){
     for(int i=0;i<MultithreadNum;i++){
-        resolving_nodes_[i]->ReplanAttempts(times);
+        resolving_nodes_[i]->setReplanAttempts(times);
     }
 }
 
 bool Engineering_robot_Controller::MultisetEndEffectorLink(const std::string & end_link){
     for(int i=0;i<MultithreadNum;i++){
-        resolving_nodes_[i]->EndEffectorLink(end_link);
+        resolving_nodes_[i]->setEndEffectorLink(end_link);
     }
 }
 

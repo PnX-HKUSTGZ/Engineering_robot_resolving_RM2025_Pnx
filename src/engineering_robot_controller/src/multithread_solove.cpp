@@ -98,7 +98,7 @@ bool Engineering_robot_Controller::MultithreadedPlanne(
     std::vector<std::thread> threads;
     std::vector<std::atomic<MultithreadState> > thread_status(MultithreadNum);
     std::vector<moveit::planning_interface::MoveGroupInterface::Plan> thread_plans(MultithreadNum);
-    
+
     for(int i=0;i<MultithreadNum;i++){
         thread_status[i]=MultithreadState::PLANE_THREAD_NOLAUNCH;
     }
@@ -135,7 +135,7 @@ bool Engineering_robot_Controller::MultithreadedPlanne(
                 failcount++;
             }
         }
-        if(failcount==threadnum){
+        if(failcount==MultithreadNum){
             break;
         }
         if(!rclcpp::ok()){
@@ -143,7 +143,7 @@ bool Engineering_robot_Controller::MultithreadedPlanne(
         }
     }
 
-    for(int i=0;i<threadnum;i++){
+    for(int i=0;i<MultithreadNum;i++){
         threads[i].join();
     }
 

@@ -70,6 +70,8 @@
 #include <moveit_msgs/msg/position_constraint.h>
 #include <moveit_msgs/msg/object_color.h>
 #include <std_msgs/msg/color_rgba.h>
+#include <moveit/moveit_cpp/moveit_cpp.h>
+#include <moveit/moveit_cpp/planning_component.h>
 
 #ifndef MOTION_PLANNING_API_NODE_HPP
 #define MOTION_PLANNING_API_NODE_HPP

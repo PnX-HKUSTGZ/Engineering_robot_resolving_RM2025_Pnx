@@ -5,11 +5,11 @@ engineering_robot_controller:
     maxOrientationTolerance: 0.3
     maxPositionTolerance: 0.25
     AllowPlanAttempt: 4
-    minPlanTime: 5
+    minPlanTime: 2
     maxPlanTime: 5
     ARM_CONTROL_GROUP: "arm"
     END_EFFECTOR_CONTROL_GROUP : "sucker"
-    MultithreadNum: 1
+    MultithreadNum: 10
 
 
 # engineering_robot_controller:
