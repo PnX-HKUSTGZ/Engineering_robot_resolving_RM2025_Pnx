@@ -4,7 +4,7 @@ engineering_robot_controller:
     minPositionTolerance: 0.05
     maxOrientationTolerance: 0.3
     maxPositionTolerance: 0.25
-    AllowPlanAttempt: 10
+    AllowPlanAttempt: 5
     minPlanTime: 5
     maxPlanTime: 5
     ARM_CONTROL_GROUP: "arm"

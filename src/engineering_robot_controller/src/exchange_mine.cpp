@@ -165,7 +165,7 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     // success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
 
-    for(int i=0;i<2;i++){
+    for(int i=0;i<AllowPlanAttempt;i++){
         // move_group_->setPlannerId(planner);
         // move_group_->setPoseTarget(TransformedTargetPose.pose);
         // move_group_->setMaxVelocityScalingFactor(1);
@@ -381,6 +381,10 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 {// state 2
     set_computer_state(STATE_TWO,PLANNING);
 
+    if(!robot_go_pose("out_mine")){
+        RCLCPP_ERROR(this->get_logger(),"robot_go_pose out_mine fail!");
+    }
+
     geometry_msgs::msg::Pose TargetPose;
     geometry_msgs::msg::Pose TransformedTargetPose;
     TargetPose.position.x=0;
@@ -396,15 +400,30 @@ void Engineering_robot_Controller::mine_exchange_pipe(){
 
     clear_constraints_state();
 
+    move_group_->setPlannerId(planner);
     move_group_->setPoseTarget(TransformedTargetPose);
-    move_group_->setGoalOrientationTolerance(minOrientationTolerance);
-    move_group_->setGoalPositionTolerance(minPositionTolerance);
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
     move_group_->setPlanningTime(minPlanTime);
-    move_group_->setReplanAttempts(4);
+    move_group_->setNumPlanningAttempts(NumPlanningAttempts);
+    move_group_->setReplanAttempts(AllowPlanAttempt);
+    // move_group_->setPlanningPipelineId("ompl");
+    move_group_->setGoalOrientationTolerance(minOrientationTolerance);
+    move_group_->setGoalPositionTolerance(minPositionTolerance);
 
-    success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+    for(int i=0;i<AllowPlanAttempt;i++){
+        RCLCPP_INFO(this->get_logger(),"AutoExchangeMine try %d",i);
+        moveit::core::MoveItErrorCode error=move_group_->plan(plan);
+        
+        success=(error==moveit::core::MoveItErrorCode::SUCCESS);
+        if(!success){
+            RCLCPP_ERROR(this->get_logger(),"AutoExchangeMine plan fail! with %s",moveit::core::error_code_to_string(error).c_str());
+        }
+        if(success){
+            RCLCPP_INFO(this->get_logger(),"AutoExchangeMine plan success!");
+            break;
+        }
+    }
 
     if(!success){
         set_computer_state(STATE_ERROR,0);

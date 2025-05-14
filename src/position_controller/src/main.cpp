@@ -44,10 +44,15 @@ namespace Engineering_robot_RM2025_Pnx{
         redeembox.transform.translation.x=0;
         redeembox.transform.translation.y=0;
         redeembox.transform.translation.z=0;
-        redeembox.transform.rotation.w=0.691726 ;
-        redeembox.transform.rotation.x=0.1171498;
-        redeembox.transform.rotation.y=0.1171498;
-        redeembox.transform.rotation.z=0.702899;
+        // redeembox.transform.rotation.w=0.691726 ;
+        // redeembox.transform.rotation.x=0.1171498;
+        // redeembox.transform.rotation.y=0.1171498;
+        // redeembox.transform.rotation.z=0.702899;
+
+        redeembox.transform.rotation.w=0.6311162 ;
+        redeembox.transform.rotation.x=0.114369;
+        redeembox.transform.rotation.y=0.343107;
+        redeembox.transform.rotation.z=-0.686214;
 
         virtual_box_position_timer_=this->create_wall_timer(10ms,[this](){
             tf2_ros::TransformBroadcaster tran(this);
