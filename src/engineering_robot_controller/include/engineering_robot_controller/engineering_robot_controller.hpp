@@ -221,7 +221,7 @@ std::string MineMesh="package://engineering_robot_controller/meshes/Mine.STL";
 std::string RedeemBoxMesh="package://engineering_robot_controller/meshes/RedeemBox.STL";
 std::string RedeemBoxFram="object/fixedbox";
 std::string robot_base="robot_base_link";
-std::string end_link="end_link";
+std::string end_link="mine_link";
 
 double minOrientationTolerance=0.1;
 double minPositionTolerance=0.01;

@@ -338,7 +338,7 @@ bool Engineering_robot_Controller::LoadAttachMine(){
 
     object_pose_relative_to_tf.position.x = 0.1;
     object_pose_relative_to_tf.position.y = -0.1;
-    object_pose_relative_to_tf.position.z = 0.0;
+    object_pose_relative_to_tf.position.z = -0.1;
     object_pose_relative_to_tf.orientation.x = 0;
     object_pose_relative_to_tf.orientation.y = 0.0;
     object_pose_relative_to_tf.orientation.z = 0.7071068;
@@ -352,6 +352,7 @@ bool Engineering_robot_Controller::LoadAttachMine(){
     moveit_msgs::msg::AttachedCollisionObject attached_object;
     attached_object.object=collision_object;
     attached_object.touch_links.push_back(end_link);
+    attached_object.touch_links.push_back("end_link");
     attached_object.weight=1.0;
     attached_object.link_name=end_link;
 

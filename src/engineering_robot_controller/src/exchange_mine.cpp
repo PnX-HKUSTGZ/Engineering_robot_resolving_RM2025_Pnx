@@ -142,7 +142,7 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     TransformedTargetPose.header.stamp=this->now();
     TargetPose.position.x=0;
     TargetPose.position.y=0;
-    TargetPose.position.z=-0.1;
+    TargetPose.position.z=-0.05;
     TargetPose.orientation.x=0;
     TargetPose.orientation.y=0;
     TargetPose.orientation.z=-0.7071068;
