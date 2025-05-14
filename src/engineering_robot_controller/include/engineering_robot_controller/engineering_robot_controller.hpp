@@ -1,6 +1,8 @@
 #include "sensor_msgs/msg/image.hpp"
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/float32.hpp>
 #include <command_interfaces/msg/computer_state.hpp>
 #include <command_interfaces/msg/player_command.hpp>
 
@@ -229,6 +231,9 @@ double minPlanTime=10;
 double maxPlanTime=15;
 int AllowPlanAttempt=5;
 int MultithreadNum=5;
+int NumPlanningAttempts=3;
+
+std::string planner;
 
 double OrientationToleranceStep=0;
 double PositionToleranceStep=0;
@@ -278,6 +283,11 @@ std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_go_home_sub_;
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_auto_exchange_sub_;
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> robot_clear_scense_sub_;
 std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> demon_run_sub_;
+std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Float32>> plan_time_pub_;
+std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Float32>> success_rate_pub_;
+
+int try_times=0;
+int success_times=0;
 
 bool robot_go_pose(const std::string & name);
 bool AutoExchangeMine();

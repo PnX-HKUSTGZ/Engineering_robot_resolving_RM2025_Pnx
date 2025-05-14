@@ -37,6 +37,14 @@
         <joint name="J5_xJ" value="0.2617"/>
         <joint name="J5_zJ" value="0"/>
     </group_state>
+    <group_state name="out_mine" group="arm">
+        <joint name="J1J" value="-0.0585"/>
+        <joint name="J2J" value="-1.5707963267948966"/>
+        <joint name="J3J" value="0"/>
+        <joint name="J4J" value="0"/>
+        <joint name="J5_xJ" value="1.5707963267948966"/>
+        <joint name="J5_zJ" value="0"/>
+    </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
     <end_effector name="sucker" parent_link="end_link" parent_group="arm" group="end"/>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->

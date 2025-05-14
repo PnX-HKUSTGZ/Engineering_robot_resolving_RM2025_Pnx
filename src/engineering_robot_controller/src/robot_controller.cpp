@@ -45,6 +45,8 @@ void Engineering_robot_Controller::LoadParam(){
     minPlanTime = config["minPlanTime"].as<double>(2);
     maxPlanTime = config["maxPlanTime"].as<double>(3);
     MultithreadNum = config["MultithreadNum"].as<int>(2);
+    NumPlanningAttempts = config["NumPlanningAttempts"].as<int>(10);
+    planner = config["planner"].as<std::string>("RRTConnectkConfigDefault");
     
     if(AllowPlanAttempt<1){
         RCLCPP_ERROR(this->get_logger(),"AllowPlanAttempt must be greater than 0, use default val 3");
@@ -65,6 +67,8 @@ void Engineering_robot_Controller::LoadParam(){
     RCLCPP_INFO_STREAM(this->get_logger(), "minPlanTime: " << minPlanTime);
     RCLCPP_INFO_STREAM(this->get_logger(), "maxPlanTime: " << maxPlanTime);
     RCLCPP_INFO_STREAM(this->get_logger(), "MultithreadNum: " << MultithreadNum);
+    RCLCPP_INFO_STREAM(this->get_logger(), "NumPlanningAttempts: " << NumPlanningAttempts);
+    RCLCPP_INFO_STREAM(this->get_logger(), "planner: " << planner);
     RCLCPP_INFO_STREAM(this->get_logger(), "------------------------");
 
 }
@@ -199,6 +203,10 @@ bool Engineering_robot_Controller::MoveitInit(){
         (void)msg;
         this->DemonRun();
     });
+
+    plan_time_pub_=this->create_publisher<std_msgs::msg::Float32>("/plan_time",1);
+    success_rate_pub_=this->create_publisher<std_msgs::msg::Float32>("/success_rate",1);
+
     return 1;
 
 }

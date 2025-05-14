@@ -93,6 +93,10 @@ private:
 
     bool use_virtual_robot_position;
 
+    std::mutex mutex_;
+
+    geometry_msgs::msg::TransformStamped redeembox;
+
 };
 
 }// namespace Engineering_robot_RM2025_Pnx{

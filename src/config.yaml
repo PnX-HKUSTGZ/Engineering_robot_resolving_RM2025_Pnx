@@ -1,15 +1,17 @@
 engineering_robot_controller:
     # Controller manager configuration
-    minOrientationTolerance: 0.1
-    minPositionTolerance: 0.1
+    minOrientationTolerance: 0.3
+    minPositionTolerance: 0.05
     maxOrientationTolerance: 0.3
     maxPositionTolerance: 0.25
-    AllowPlanAttempt: 4
-    minPlanTime: 2
+    AllowPlanAttempt: 10
+    minPlanTime: 5
     maxPlanTime: 5
     ARM_CONTROL_GROUP: "arm"
     END_EFFECTOR_CONTROL_GROUP : "sucker"
-    MultithreadNum: 10
+    MultithreadNum: 5
+    NumPlanningAttempts: 10
+    planner: "RRTConnectkConfigRM"
 
 
 # engineering_robot_controller:

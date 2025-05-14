@@ -11,6 +11,7 @@ bool Engineering_robot_Controller::robot_go_pose(const std::string & name){
     }
 
     move_group_->setNamedTarget(name);
+    move_group_->setPlannerId("RRTConnectkConfigDefault");
     move_group_->setMaxVelocityScalingFactor(1);
     move_group_->setMaxAccelerationScalingFactor(1);
     moveit::planning_interface::MoveGroupInterface::Plan plan;
@@ -100,6 +101,10 @@ geometry_msgs::msg::TransformStamped Engineering_robot_Controller::fix_RedeemBox
 
 bool Engineering_robot_Controller::AutoExchangeMine(){
 
+    try_times++;
+
+    auto start_time = std::chrono::steady_clock::now();
+
     clearPlanScene();
 
     if(!robot_go_pose("get_mine")){
@@ -127,6 +132,10 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
 
     RCLCPP_INFO(this->get_logger(),"LoadAttachMine and LoadRedeemBox success!");
 
+    if(!robot_go_pose("out_mine")){
+        RCLCPP_ERROR(this->get_logger(),"robot_go_pose out_mine fail!");
+    }
+
     geometry_msgs::msg::Pose TargetPose;
     geometry_msgs::msg::PoseStamped TransformedTargetPose;
     TransformedTargetPose.header.frame_id=robot_base;
@@ -140,25 +149,70 @@ bool Engineering_robot_Controller::AutoExchangeMine(){
     TargetPose.orientation.w=0.7071068;
     doPoseTransform(TargetPose,TransformedTargetPose.pose,msg);
 
-    Multiclear_constraints_state();
-    MultisetPoseTarget(TransformedTargetPose.pose);
-    MultisetGoalOrientationTolerance(minOrientationTolerance);
-    MultisetGoalPositionTolerance(minPositionTolerance);
-    MultisetMaxVelocityScalingFactor(1);
-    MultisetMaxAccelerationScalingFactor(1);
-    MultisetPlanningTime(minPlanTime);
-    MultisetReplanAttempts(4);
+    clear_constraints_state();
+    move_group_->setPlannerId(planner);
+    move_group_->setPoseTarget(TransformedTargetPose.pose);
+    move_group_->setMaxVelocityScalingFactor(1);
+    move_group_->setMaxAccelerationScalingFactor(1);
+    move_group_->setPlanningTime(minPlanTime);
+    move_group_->setNumPlanningAttempts(NumPlanningAttempts);
+    move_group_->setReplanAttempts(AllowPlanAttempt);
+    // move_group_->setPlanningPipelineId("ompl");
+    move_group_->setGoalOrientationTolerance(minOrientationTolerance);
+    move_group_->setGoalPositionTolerance(minPositionTolerance);
 
+    bool success=0;
     moveit::planning_interface::MoveGroupInterface::Plan plan;
-    bool success=MultithreadedPlanne(plan);
+    // success=(move_group_->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+
+    for(int i=0;i<2;i++){
+        // move_group_->setPlannerId(planner);
+        // move_group_->setPoseTarget(TransformedTargetPose.pose);
+        // move_group_->setMaxVelocityScalingFactor(1);
+        // move_group_->setMaxAccelerationScalingFactor(1);
+        // move_group_->setPlanningTime(minPlanTime);
+        // move_group_->setNumPlanningAttempts(NumPlanningAttempts);
+        // move_group_->setReplanAttempts(4);
+        // // move_group_->setPlanningPipelineId("ompl");
+        // move_group_->setGoalOrientationTolerance(minOrientationTolerance);
+        // move_group_->setGoalPositionTolerance(minPositionTolerance);
+        RCLCPP_INFO(this->get_logger(),"AutoExchangeMine try %d",i);
+        moveit::core::MoveItErrorCode error=move_group_->plan(plan);
+        
+        success=(error==moveit::core::MoveItErrorCode::SUCCESS);
+        if(!success){
+            RCLCPP_ERROR(this->get_logger(),"AutoExchangeMine plan fail! with %s",moveit::core::error_code_to_string(error).c_str());
+        }
+        if(success){
+            RCLCPP_INFO(this->get_logger(),"AutoExchangeMine plan success!");
+            break;
+        }
+    }
+
 
     if(!success){
         RCLCPP_ERROR(this->get_logger(),"plan fail!");
-        return 0;
     }
     else{
         RCLCPP_INFO(this->get_logger(),"plan success!");
+        success_times++;        
     }
+
+    std_msgs::msg::Float32 success_rate;
+    success_rate.data=success_times/(double)try_times;
+    success_rate_pub_->publish(success_rate);
+
+    if(!success){
+        return 0;
+    }
+
+    auto end_time = std::chrono::steady_clock::now();
+
+    std::chrono::duration<double>  duration = (end_time - start_time);
+    RCLCPP_INFO(this->get_logger(),"AutoExchangeMine plan time: %ld ms", duration.count());
+    std_msgs::msg::Float32 plan_time;
+    plan_time.data=duration.count();
+    plan_time_pub_->publish(plan_time);
 
     try{
         move_group_->execute(plan);

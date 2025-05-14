@@ -47,7 +47,7 @@ def generate_launch_description():
         executable="static_transform_publisher",
         name="static_transform_publisher",
         output="log",
-        arguments=["--frame-id", "world", "--child-frame-id", "panda_link0"],
+        arguments=["--frame-id", "map", "--child-frame-id", "robot_base_link"],
     )
 
     # Publish TF

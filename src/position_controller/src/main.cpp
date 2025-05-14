@@ -37,91 +37,63 @@ namespace Engineering_robot_RM2025_Pnx{
         Robot_base_tf2_pub_=std::make_shared<tf2_ros::TransformBroadcaster>(this);
 
     // box_position
+    
+    // 0.1171498, 0.1171498, 0.702899, 0.691726
+        redeembox.child_frame_id="RedeemBox_frame";
+        redeembox.header.frame_id="station";
+        redeembox.transform.translation.x=0;
+        redeembox.transform.translation.y=0;
+        redeembox.transform.translation.z=0;
+        redeembox.transform.rotation.w=0.691726 ;
+        redeembox.transform.rotation.x=0.1171498;
+        redeembox.transform.rotation.y=0.1171498;
+        redeembox.transform.rotation.z=0.702899;
 
-        if(use_virtual_box_position){
-            int k=0;
-            virtual_box_position_timer_=this->create_wall_timer(10ms,[this,&k](){
-                tf2_ros::TransformBroadcaster tran(this);
-                geometry_msgs::msg::TransformStamped robot_to_base;
+        virtual_box_position_timer_=this->create_wall_timer(10ms,[this](){
+            tf2_ros::TransformBroadcaster tran(this);
+            geometry_msgs::msg::TransformStamped robot_to_base;
 
-                robot_to_base.header.stamp=this->now();
-                robot_to_base.header.frame_id="map";
-                robot_to_base.child_frame_id=RedeemBox_frame;
-                robot_to_base.transform.translation.x=0;
-                robot_to_base.transform.translation.y=0.75;
-                robot_to_base.transform.translation.z=0.4;
-                robot_to_base.transform.rotation.w=0.3826834 ;
-                robot_to_base.transform.rotation.x=-0.6159197;
-                robot_to_base.transform.rotation.y=0.3079598;
-                robot_to_base.transform.rotation.z=-0.6159197;
-                // robot_to_base.transform.rotation.w=1 ;
-                // robot_to_base.transform.rotation.x=0;
-                // robot_to_base.transform.rotation.y=0;
-                // robot_to_base.transform.rotation.z=0;
-                tran.sendTransform(robot_to_base);
+            robot_to_base.header.stamp=this->now();
+            robot_to_base.header.frame_id="robot_base_link";
+            robot_to_base.child_frame_id="station";
+            robot_to_base.transform.translation.x=0;
+            robot_to_base.transform.translation.y=0.85;
+            robot_to_base.transform.translation.z=0.2;
+            robot_to_base.transform.rotation.w=0 ;
+            robot_to_base.transform.rotation.x=0;
+            robot_to_base.transform.rotation.y=0;
+            robot_to_base.transform.rotation.z=1;
+            // robot_to_base.transform.rotation.w=1 ;
+            // robot_to_base.transform.rotation.x=0;
+            // robot_to_base.transform.rotation.y=0;
+            // robot_to_base.transform.rotation.z=0;
+            tran.sendTransform(robot_to_base);
+            RCLCPP_INFO(this->get_logger(),"virtual_box_position pub");
 
-                geometry_msgs::msg::TransformStamped msg;
-                msg.header.stamp=this->now();
-                msg.header.frame_id="robot_base_link";
-                msg.child_frame_id="sensor/RealSense";
-                msg.transform.translation.x=0.156999970395237;
-                msg.transform.translation.y=-0.033000353576592;
-                msg.transform.translation.z=0.36374073844197;
-                msg.transform.rotation.w=1;
-                msg.transform.rotation.x=0;
-                msg.transform.rotation.y=0;
-                msg.transform.rotation.z=0;
-                tran.sendTransform(msg);
-                geometry_msgs::msg::TransformStamped image_to_center_msg;
-                geometry_msgs::msg::TransformStamped depth_to_center_msg;
+            std::lock_guard<std::mutex> lock(mutex_);
+            redeembox.header.stamp=this->now();
+            tran.sendTransform(redeembox);
 
-                depth_to_center_msg.header.frame_id="sensor/RealSense";
-                depth_to_center_msg.child_frame_id="sensor/RealSense/depth";
-                depth_to_center_msg.header.stamp=this->now();
-                depth_to_center_msg.transform.translation.x=-0.02;
-                depth_to_center_msg.transform.translation.y=-1.1*1e-3;
-                depth_to_center_msg.transform.translation.z=0;
-                depth_to_center_msg.transform.rotation.x=0.7071068;
-                depth_to_center_msg.transform.rotation.y=0;
-                depth_to_center_msg.transform.rotation.z=0;
-                depth_to_center_msg.transform.rotation.w=-0.7071068;
-        
-                image_to_center_msg.header.frame_id="sensor/RealSense";
-                image_to_center_msg.child_frame_id="sensor/RealSense/image";
-                image_to_center_msg.header.stamp=this->now();
-                image_to_center_msg.transform.translation.x=-0.035;
-                image_to_center_msg.transform.translation.y=-1.1*1e-3;
-                image_to_center_msg.transform.translation.z=0;
-                image_to_center_msg.transform.rotation.x=0.7071068;
-                image_to_center_msg.transform.rotation.y=0;
-                image_to_center_msg.transform.rotation.z=0;
-                image_to_center_msg.transform.rotation.w=-0.7071068;
-                tran.sendTransform(image_to_center_msg);
-                tran.sendTransform(depth_to_center_msg);
+            geometry_msgs::msg::TransformStamped reb;
+            reb.header.stamp=this->now();
+            reb.header.frame_id="RedeemBox_frame";
+            reb.child_frame_id="object/box";
+            reb.transform.rotation.w=0.5;
+            reb.transform.rotation.x=-0.5;
+            reb.transform.rotation.y=-0.5;
+            reb.transform.rotation.z=-0.5;
+            reb.transform.translation.y=0;
+            reb.transform.translation.z=0;
+            reb.transform.translation.x=0;
+            tran.sendTransform(reb);
+            RCLCPP_INFO(this->get_logger(),"virtual_box_position_ pub");
 
-                geometry_msgs::msg::TransformStamped to_map;
-
-                to_map.header.frame_id="robot_base_link";
-                to_map.child_frame_id="sensor/camera";
-                to_map.header.stamp=this->now();
-                to_map.transform.rotation.w=0.7071068;
-                to_map.transform.rotation.x=-0.7071068;
-                to_map.transform.rotation.y=0;
-                to_map.transform.rotation.z=0;
-                to_map.transform.translation.x=-0.080000000000085;
-                to_map.transform.translation.y=0.0121000016614134;
-                to_map.transform.translation.z=0.36124073844197;
-                tran.sendTransform(to_map);
-
-                RCLCPP_INFO(this->get_logger(),"virtual_box_position pub");
-            });
-            RCLCPP_INFO_STREAM(this->get_logger(),"use_virtual_box_position ture, use virtual box position");
-        }
+        });
+        RCLCPP_INFO_STREAM(this->get_logger(),"use_virtual_box_position ture, use virtual box position");
 
         RCLCPP_INFO_STREAM(this->get_logger(),"box_position part load finish");
 
         RCLCPP_INFO_STREAM(this->get_logger(),"PositionController init OK!");
-        
 
     }
 
