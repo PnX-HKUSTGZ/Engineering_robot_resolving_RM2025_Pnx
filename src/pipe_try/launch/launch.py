@@ -32,14 +32,21 @@ def load_yaml(package_name, file_path):
 
 def generate_launch_description():
 
+    base_path=get_package_share_directory("engineering_robot_moveit")
+
     moveit_config = (
         MoveItConfigsBuilder("engineering_robot", package_name="engineering_robot_moveit")
-        .planning_scene_monitor(
-            publish_robot_description=True, publish_robot_description_semantic=True
-        )
+        # .planning_scene_monitor(
+        #     publish_robot_description=True, publish_robot_description_semantic=True
+        # )
+        .robot_description(file_path=os.path.join(base_path, "config", "engineering_robot.urdf.xacro"))
+        .trajectory_execution(file_path=os.path.join(base_path, "config", "moveit_controllers.yaml"))
+        .robot_description_semantic(file_path=os.path.join(base_path, "config", "engineering_robot.srdf"))
         .planning_pipelines(pipelines=["ompl"])
         .to_moveit_configs()
     )
+
+    print(moveit_config.to_dict())
 
     # MotionPlanningPipeline demo executable
     motion_planning_pipeline_demo = Node(

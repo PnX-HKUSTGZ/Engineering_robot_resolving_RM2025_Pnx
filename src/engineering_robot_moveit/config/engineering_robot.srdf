@@ -38,7 +38,7 @@
         <joint name="J5_zJ" value="0"/>
     </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
-    <end_effector name="sucker" parent_link="end_link" group="end"/>
+    <end_effector name="sucker" parent_link="end_link" parent_group="arm" group="end"/>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
     <virtual_joint name="virtual_robot_base_link" type="fixed" parent_frame="map" child_link="robot_base_link"/>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
